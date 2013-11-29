@@ -25,8 +25,8 @@ class Maps:
     def load_map(self, map_string=None):
         """Loading obstacle and occlusion maps and applies downsampling."""
         if map_string is None:
-            path = roslib.packages.get_pkg_dir("turtlebot_example")
-            map_string = path.rstrip("/") + "/src/turtlebot_example/IGVCmap.tif"
+            path = roslib.packages.get_pkg_dir("fydp_demo")
+            map_string = path.rstrip("/") + "/src/fydp_demo/IGVCmap.tif"
             
         obs_weights = np.array([1.,1.,1.])/3.
         obstacle_threshold = 0.5

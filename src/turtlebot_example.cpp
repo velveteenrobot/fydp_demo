@@ -9,6 +9,9 @@
 //
 // //////////////////////////////////////////////////////////
 
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib/client/simple_action_client.h>
+
 #include "turtlebot_example.h"
 #include "Map.h"
 #include "marker.h"
@@ -41,9 +44,9 @@ bool waypointsDone = false;
 void pose_callback(const fydp_demo::ips_msg& msg)
 {
   //This function is called when a new position message is received
-  if(msg.tag_id != TAGID) {
+  /*if(msg.tag_id != TAGID) {
     return;
-  }
+  }*/
 
   pose.position.x = msg.X;
   pose.position.y = msg.Y;
@@ -127,29 +130,65 @@ int main(int argc, char **argv)
   cout<<"Map width: "<<roomMap->getWidth()<<endl;
   cout<<"Map heigh: "<<roomMap->getHeight()<<endl;
 
-  cout<<"Wait for all waypoints"<<endl;
+  /*cout<<"Wait for all waypoints"<<endl;
   while (waypointsDone==false){
     spinOnce(loopRate);
-  }
+  }*/
   // plan a path
-  cout<<"Running RRT"<<endl;
+  cout<<"Running local planner"<<endl;
 
+  typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
+  //tell the action client that we want to spin a thread by default
+  MoveBaseClient ac("move_base", true);
+  move_base_msgs::MoveBaseGoal goal;
 
-  list<Milestone*> path = doRRTWaypoints(pose, waypoints, *roomMap);
-  /*
-  list<Milestone*> path;
-  Pose unusedPose;
-  path.push_back(new Milestone(NULL, unusedPose, 0.2, 0, 100));
-  */
-  // track the path
-  Tracking tracking(path, pose, n);
-  while (ros::ok()) {
-    //Velocity control variable
-    if (!tracking.doCycle(pose)) {
-      break;
-    }
-    spinOnce(loopRate);
+  Pose currentWaypoint;
+
+  //wait for the action server to come up
+  while(!ac.waitForServer(ros::Duration(5.0))){
+    ROS_INFO("Waiting for the move_base action server to come up");
   }
+
+  while (true)
+  {
+    if (!waypoints.empty())
+    {
+      currentWaypoint = waypoints[0];
+    //we'll send a goal to the robot to move 1 meter forward
+      goal.target_pose.header.frame_id = "/map";
+      goal.target_pose.header.stamp = ros::Time::now();
+
+      cout<<"Goal: "<< currentWaypoint.position.x<< " "<< currentWaypoint.position.y<<endl;
+
+      goal.target_pose.pose.position.x = currentWaypoint.position.x;
+      goal.target_pose.pose.position.y = currentWaypoint.position.y;
+ 
+      goal.target_pose.pose.orientation.w = 1.0;
+
+      ROS_INFO("Sending goal");
+      ac.sendGoal(goal);
+
+      ac.waitForResult();
+
+      if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+        ROS_INFO("Hooray, the base moved");
+      else
+        ROS_INFO("The base failed to move for some reason");
+
+      waypoints.erase(waypoints.begin());
+
+    }
+    else
+      spinOnce(loopRate);
+  }
+
+
+  
+  
+  /*while (ros::ok()) {
+ 
+    spinOnce(loopRate);
+  }*/
   // TODO: free memory
   cout<<"Done"<<endl;
   return 0;
