@@ -16,12 +16,12 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <visualization_msgs/Marker.h>
 #include <nav_msgs/OccupancyGrid.h>
-#include <turtlebot_example/ips_msg.h>
+#include <fydp_demo/ips_msg.h>
 
 
 ros::Publisher pose_publisher;
 
-void pose_callback(const turtlebot_example::ips_msg& msg)
+void pose_callback(const fydp_demo::ips_msg& msg)
 {
 	//This function is called when a new position message is received
     geometry_msgs::PoseStamped curpose;

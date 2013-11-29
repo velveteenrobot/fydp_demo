@@ -23,7 +23,7 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <std_msgs/Bool.h>
-#include <turtlebot_example/ips_msg.h>
+#include <fydp_demo/ips_msg.h>
 
 #include <vector>
 
@@ -38,7 +38,7 @@ vector<Pose> waypoints;
 bool waypointsDone = false;
 
 
-void pose_callback(const turtlebot_example::ips_msg& msg)
+void pose_callback(const fydp_demo::ips_msg& msg)
 {
   //This function is called when a new position message is received
   if(msg.tag_id != TAGID) {

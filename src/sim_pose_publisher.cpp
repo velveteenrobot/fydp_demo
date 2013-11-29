@@ -16,7 +16,7 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <visualization_msgs/Marker.h>
 #include <nav_msgs/OccupancyGrid.h>
-#include <turtlebot_example/ips_msg.h>
+#include <fydp_demo/ips_msg.h>
 #include <tf/transform_broadcaster.h>
 
 ros::Publisher pose_publisher;
@@ -27,7 +27,7 @@ tf::Transform *tform;
 void pose_callback(const gazebo_msgs::ModelStates& msg)
 {
 	//This function is called when a new position message is received
-	turtlebot_example::ips_msg curpose;
+	fydp_demo::ips_msg curpose;
 	curpose.header.stamp = ros::Time::now();
 	curpose.tag_id = 6;
 	curpose.hamming_distance = 0;
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 
     //Subscribe to the desired topics and assign callbacks
     ros::Subscriber pose_sub = n.subscribe("/gazebo/model_states", 1, pose_callback);
-    pose_publisher = n.advertise<turtlebot_example::ips_msg>("/indoor_pos", 1, true);
+    pose_publisher = n.advertise<fydp_demo::ips_msg>("/indoor_pos", 1, true);
   
 
     //Set the loop rate
