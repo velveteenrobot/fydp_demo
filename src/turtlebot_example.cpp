@@ -15,8 +15,6 @@
 #include "turtlebot_example.h"
 #include "Map.h"
 #include "marker.h"
-#include "RRT.h"
-#include "tracking.h"
 
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -76,19 +74,23 @@ void waypoints_callback(const geometry_msgs::Pose msg)
 
   waypoints.push_back(shifted_point);
 
-  vector<Point> points;
-
-  // plot /indoor_pos 
-  points.push_back(shifted_point.position);
-  Pose closePose = shifted_point;
-
-  closePose.position.x = shifted_point.position.x + 0.01;
-  closePose.position.z = shifted_point.position.z + 0.5;
-  points.push_back(closePose.position);
-
-  cout<<"drawing line: "<<shifted_point.position.x<<", "<<shifted_point.position.y<<endl;
+  //vector<Point> points;
   
-  drawLine(CARROT, points);
+
+
+  drawLine(shifted_point);
+  //points.push_back(shifted_point.position);
+  //Pose closePose = shifted_point;
+
+  //closePose.position.x = shifted_point.position.x + 0.01;
+  //closePose.position.z = shifted_point.position.z + 0.5;
+  //points.push_back(closePose.position);
+
+  cout<<"drawing marker: "<<shifted_point.position.x<<", "<<shifted_point.position.y<<endl;
+
+
+  
+  //drawLine(CARROT, points);
 }
 
 void waypoints_done_callback(std_msgs::Bool msg)
@@ -106,6 +108,7 @@ int main(int argc, char **argv)
   //Initialize the ROS framework
   ros::init(argc,argv,"main_control");
   ros::NodeHandle n;
+  markerInit(n);
 
   //Subscribe to the desired topics and assign callbacks
   ros::Subscriber map_sub = n.subscribe("/map", 1, map_callback);
@@ -114,7 +117,7 @@ int main(int argc, char **argv)
   ros::Subscriber done_waypoints_sub = n.subscribe("/waypoints_done", 1, waypoints_done_callback);
 
   //Setup topics to Publish from this node
-  markerInit(n);
+  
 
   //Set the loop rate
   ros::Rate loopRate(1/CYCLE_TIME);    //20Hz update rate
@@ -151,6 +154,7 @@ int main(int argc, char **argv)
 
   while (true)
   {
+
     if (!waypoints.empty())
     {
       currentWaypoint = waypoints[0];
@@ -168,18 +172,20 @@ int main(int argc, char **argv)
       ROS_INFO("Sending goal");
       ac.sendGoal(goal);
 
-      ac.waitForResult();
+      /*ac.waitForResult();
 
       if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
         ROS_INFO("Hooray, the base moved");
       else
         ROS_INFO("The base failed to move for some reason");
-
+      */
       waypoints.erase(waypoints.begin());
+      ros::spinOnce();
 
     }
     else
       spinOnce(loopRate);
+      
   }
 
 

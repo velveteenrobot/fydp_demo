@@ -23,7 +23,7 @@ void markerInit(ros::NodeHandle& n) {
 
 static int lastId = 1;
 
-void drawLine(MarkerType type, vector<Point>& points) {
+void drawLine(Pose pose) {
   double x = 0;
   double y = 0;
   double steps = 50;
@@ -32,33 +32,17 @@ void drawLine(MarkerType type, vector<Point>& points) {
   lines.header.frame_id = "/map";
   lines.id = lastId;
   lastId++;
-  lines.type = visualization_msgs::Marker::LINE_STRIP;
+  lines.type = visualization_msgs::Marker::SPHERE;
   lines.action = visualization_msgs::Marker::ADD;
   lines.ns = "curves";
-  lines.scale.x = 0.05;
+  lines.scale.x = 0.20;
+  lines.scale.y = 0.20;
+  lines.scale.z = 0.20;
+  lines.pose.position.x = pose.position.x;
+  lines.pose.position.y = pose.position.y;
 
-  for (int i = 0; i < points.size(); ++i) {
-    lines.points.push_back(points[i]);
-  }
+  lines.color.r = 1.0;
+  lines.color.a = 1.0;
+  selectedPath.publish(lines);
 
-  switch (type) {
-    case RANDOM_TREE:
-      lines.color.r = 1.0;
-      lines.color.b = 1.0;
-      lines.color.a = 1.0;
-      randomTree.publish(lines);
-      break;
-    case SELECTED_TREE:
-      lines.color.r = 1.0;
-      lines.color.a = 1.0;
-      selectedPath.publish(lines);
-      break;
-    case CARROT:
-      lines.color.b = 1.0;
-      lines.color.a = 1.0;
-      carrotPath.publish(lines);
-      break;
-    default:
-      break;
-  }
 }

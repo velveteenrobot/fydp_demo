@@ -15,4 +15,4 @@ typedef enum {
 
 void markerInit(ros::NodeHandle& n);
 void drawPoint(float x, float y);
-void drawLine(MarkerType type, vector<Point>& points);
+void drawLine(Pose pose);

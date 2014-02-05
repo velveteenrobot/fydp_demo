@@ -52,6 +52,7 @@ def plan():
                 waypoints_done = Bool()
                 waypoints_done.data = True
                 pub2.publish(waypoints_done)
+                print "Done"
                 done = True
             else:
                 robot.progress = robot.progress + 1
