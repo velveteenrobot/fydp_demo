@@ -2,6 +2,7 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Point.h>
 #include <vector>
 
 using namespace std;
@@ -15,4 +16,6 @@ typedef enum {
 
 void markerInit(ros::NodeHandle& n);
 void drawPoint(float x, float y);
-void drawLine(Pose pose);
+void drawLine(std::vector<Pose> poses);
+void drawPose(Pose pose);
+

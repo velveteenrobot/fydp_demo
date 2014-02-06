@@ -6,7 +6,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-import roslib
 import mapload 
 import time
 
@@ -25,8 +24,7 @@ class Maps:
     def load_map(self, map_string=None):
         """Loading obstacle and occlusion maps and applies downsampling."""
         if map_string is None:
-            path = roslib.packages.get_pkg_dir("fydp_demo")
-            map_string = path.rstrip("/") + "/src/fydp_demo/IGVC_square.png"
+            map_string = 'IGVCmap.tif'
             
         obs_weights = np.array([1.,1.,1.])/3.
         obstacle_threshold = 0.5
@@ -37,7 +35,7 @@ class Maps:
 
         self.obstacle = (obs_weights[0]*rawmap[:,:,0] + obs_weights[1]*rawmap[:,:,1] + obs_weights[2]*rawmap[:,:,2]) > (255*obstacle_threshold)
         occlusion_map = (occ_weights[0]*rawmap[:,:,0] + occ_weights[1]*rawmap[:,:,1] + occ_weights[2]*rawmap[:,:,2]) > (255*occlusion_threshold)
-        expanded_obstacle = scipy.ndimage.morphology.binary_erosion(self.obstacle, np.array([ [1,1,1], [1,1,1], [1,1,1]]), border_value = 1, iterations=16)
+        expanded_obstacle = scipy.ndimage.morphology.binary_erosion(self.obstacle, np.array([ [1,1,1], [1,1,1], [1,1,1]]), border_value = 1, iterations=6)
         self.expanded_obstacle = expanded_obstacle
         
         self.occlusion = np.logical_not(occlusion_map)
