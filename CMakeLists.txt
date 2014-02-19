@@ -42,6 +42,6 @@ target_link_libraries(sim_pose_publisher
    ${catkin_LIBRARIES}
 )
 
-target_link_libraries(vis_pose_publisher
-   ${catkin_LIBRARIES}
-)
+#target_link_libraries(vis_pose_publisher
+#   ${catkin_LIBRARIES}
+#)
