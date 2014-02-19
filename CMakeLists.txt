@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.4.6)
 project(fydp_demo)
-find_package(catkin REQUIRED COMPONENTS std_msgs rospy sensor_msgs geometry_msgs roscpp tf)
+find_package(catkin REQUIRED COMPONENTS std_msgs rospy sensor_msgs geometry_msgs roscpp tf message_generation)
 
 # Set the build type.  Options are:
 #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
@@ -28,7 +28,11 @@ generate_messages(DEPENDENCIES std_msgs)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 add_executable(turtlebot_example src/turtlebot_example.cpp src/Map.cpp src/marker.cpp)
 add_executable(sim_pose_publisher src/sim_pose_publisher.cpp)
-add_executable(vis_pose_publisher src/vis_pose_publisher.cpp)
+#add_executable(vis_pose_publisher src/vis_pose_publisher.cpp)
+
+add_dependencies(sim_pose_publisher ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+add_dependencies(turtlebot_example ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+
 #target_link_libraries(turtlebot_example ${PROJECT_NAME})
 target_link_libraries(turtlebot_example
    ${catkin_LIBRARIES}
