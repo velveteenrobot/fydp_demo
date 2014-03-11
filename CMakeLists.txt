@@ -28,10 +28,15 @@ generate_messages(DEPENDENCIES std_msgs)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 add_executable(turtlebot_example src/turtlebot_example.cpp src/Map.cpp src/marker.cpp)
 add_executable(sim_pose_publisher src/sim_pose_publisher.cpp)
+
+add_executable(make_a_map src/make_a_map.cpp src/marker.cpp)
+
 #add_executable(vis_pose_publisher src/vis_pose_publisher.cpp)
 
 add_dependencies(sim_pose_publisher ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 add_dependencies(turtlebot_example ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+
+
 
 #target_link_libraries(turtlebot_example ${PROJECT_NAME})
 target_link_libraries(turtlebot_example
@@ -40,6 +45,10 @@ target_link_libraries(turtlebot_example
 
 target_link_libraries(sim_pose_publisher
    ${catkin_LIBRARIES}
+)
+
+target_link_libraries(make_a_map
+  ${catkin_LIBRARIES}
 )
 
 #target_link_libraries(vis_pose_publisher

@@ -50,13 +50,19 @@ void pose_callback(const fydp_demo::ips_msg& msg)
     return;
   }*/
 
-  pose.position.x = msg.X;
-  pose.position.y = msg.Y;
+  if (roomMap != NULL)
+  {
+    
+    pose.position.x = msg.X; //+ float(roomMap->getWidth())/2.0*float(roomMap->getRes());
+    pose.position.y = msg.Y; //+ float(roomMap->getHeight())/2.0*float(roomMap->getRes());
 
-  quaternionTFToMsg(
-      tf::createQuaternionFromRPY(0, 0, msg.Yaw),
-      pose.orientation);
-  poseReady = true;
+    //shifted_point.position.y = (float(roomMap->getHeight()) - float(msg.poses[i].position.y))*float(roomMap->getRes());
+    //shifted_point.position.x = float(msg.poses[i].position.x)*float(roomMap->getRes());
+
+    quaternionTFToMsg(
+        tf::createQuaternionFromRPY(0, 0, msg.Yaw),
+        pose.orientation);    poseReady = true;
+  }
 }
 
 
@@ -65,7 +71,7 @@ void map_callback(const nav_msgs::OccupancyGrid& msg)
 {
   //This function is called when a new map is received
   //you probably want to save the map into a form which is easy to work with
-
+  
   roomMap = new Map(msg);
   // TODO: calculate the path
 }
@@ -85,17 +91,35 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
   for (int i = 0; i < msg.poses.size(); i++)
   {
     
-    //cout<<"balls: "<<msg.poses[i].position.x<<", "<<msg.poses[i].position.y<<endl;
-    shifted_point.position.y = (float(roomMap->getHeight()) - float(msg.poses[i].position.y))*float(roomMap->getRes());
-    shifted_point.position.x = float(msg.poses[i].position.x)*float(roomMap->getRes());
+    shifted_point.position.x = -(float(msg.poses[i].position.x) - float(roomMap->getWidth())/2.0)*float(roomMap->getRes());
+    shifted_point.position.y = -(float(msg.poses[i].position.y) - float(roomMap->getHeight())/2.0)*float(roomMap->getRes());
+    //shifted_point.position.y = (float(roomMap->getHeight()) - float(msg.poses[i].position.y))*float(roomMap->getRes()) + float(roomMap->getHeight())/2.0*float(roomMap->getRes()) + (2.0*float(msg.poses[i].position.y) - 2.0*float(roomMap->getHeight()))*float(roomMap->getRes()) + float(roomMap->getHeight())/2.0*float(roomMap->getRes());
+    //shifted_point.position.x = -float(msg.poses[i].position.x)*float(roomMap->getRes());
     //cout<<"drawing marker: "<<shifted_point.position.x<<", "<<shifted_point.position.y<<endl;
+    //shifted_point.position.x = roomMap->getRes() * (float(msg.poses[i].position.y) - float(roomMap->getWidth()) / 2.0);
+    //shifted_point.position.y = -roomMap->getRes() * (float(msg.poses[i].position.x) + float(roomMap->getHeight()) / 2.0);
+
+
+    Pose offsetWaypoint;
+    offsetWaypoint = shifted_point;
+    //offsetWaypoint.position.x-= float(roomMap->getWidth())/2.0*float(roomMap->getRes());
+    //offsetWaypoint.position.y-= float(roomMap->getHeight())/2.0*float(roomMap->getRes());
+    //offsetWaypoint.position.x = float(msg.poses[i].position.x)*float(roomMap->getRes());
+    //offsetWaypoint.position.y = float(msg.poses[i].position.y)*float(roomMap->getRes());
+    
+
+    cout<<"Offset point: "<<offsetWaypoint.position.x<<", "<<offsetWaypoint.position.y<<endl;
+    cout<<"Shifted point: "<<shifted_point.position.x<<", "<<shifted_point.position.y<<endl;
+    cout<<"Original point: "<<msg.poses[i].position.x<<", "<<msg.poses[i].position.y<<endl;
+    cout<<"Map width: "<<float(roomMap->getWidth())<<", Map height: "<<float(roomMap->getHeight())<<", Map res: "<<float(roomMap->getRes())<<endl;
+    
+
     waypoints.push_back(shifted_point);
-    points.push_back(shifted_point);
+    points.push_back(offsetWaypoint);
   }
 
   drawLine(points);
   points.clear();
-  cout << "Balls: " << waypoints.size() <<endl;
 
 
   
@@ -121,7 +145,9 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
 
 void waypoints_done_callback(std_msgs::Bool msg)
 {
+  cout<<"Waypoints done callback"<<endl;
   waypointsDone = msg.data;
+  cout<<"Finished waypoints done callback"<<endl;
 }
 
 std::vector< std::vector<int> > bresenham(int x0,int y0,int x1,int y1)
@@ -268,19 +294,26 @@ int main(int argc, char **argv)
   //Set the loop rate
   ros::Rate loopRate(1/CYCLE_TIME);    //20Hz update rate
 
-  cout<<"wait for the position"<<endl;
-  while (!poseReady) {
-    spinOnce(loopRate);
-  }
+
   cout<<"wait for the map"<<endl;
   while (roomMap == NULL) {
     spinOnce(loopRate);
   }
+
+  cout<<"wait for the position"<<endl;
+  while (!poseReady) {
+    cout<<"Balls"<<endl;
+    loopRate.sleep(); //Maintain the loop rate
+    cout<<"Balls2"<<endl;
+    ros::spinOnce();
+    cout<<"Balls3"<<endl;
+  }
+  
   cout<<"Map width: "<<roomMap->getWidth()<<endl;
   cout<<"Map heigh: "<<roomMap->getHeight()<<endl;
 
   /*cout<<"Wait for all waypoints"<<endl;
-  while (waypointsDone==false){
+  while (waypointsDone==false){spinOnce
     spinOnce(loopRate);
   }*/
   // plan a path
@@ -340,14 +373,23 @@ int main(int argc, char **argv)
       cout<<"Error x: "<<error.linear.x
           <<", y: "<<error.linear.y
           <<", yaw: "<<error.angular.z<<endl;
-      vel.linear.x += 0.8 * error.linear.x;
+      vel.linear.x += 0.6 * error.linear.x;
       vel.angular.z += 1.0 * error.linear.y;
       // vel.angular.z -= 0.1 * error.angular.z;
 
       velocityPublisher.publish(vel); // Publish the command velocity
-      ros::Duration(0.5).sleep();
+      ros::Duration(0.2).sleep();
 
-      drawPose(currentWaypoint);
+      Pose offsetWaypoint;
+      offsetWaypoint = currentWaypoint;
+      //offsetWaypoint.position.x-= float(roomMap->getWidth())/2.0*float(roomMap->getRes());
+      //offsetWaypoint.position.y-= float(roomMap->getHeight())/2.0*float(roomMap->getRes());
+
+
+      //offsetWaypoint.position.x = -offsetWaypoint.position.x;
+      //offsetWaypoint.position.y = offsetWaypoint.position.y + float(roomMap->getHeight())/2.0*float(roomMap->getRes());
+
+      drawPose(offsetWaypoint);
       ros::spinOnce();
       waypoints.erase(waypoints.begin());
       
