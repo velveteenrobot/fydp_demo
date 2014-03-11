@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.4.6)
 project(fydp_demo)
-find_package(catkin REQUIRED COMPONENTS std_msgs rospy sensor_msgs geometry_msgs roscpp tf message_generation)
+find_package(catkin REQUIRED COMPONENTS std_msgs rospy sensor_msgs geometry_msgs roscpp tf message_generation cv_bridge image_transport)
 
 # Set the build type.  Options are:
 #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
@@ -31,6 +31,7 @@ add_executable(sim_pose_publisher src/sim_pose_publisher.cpp)
 
 add_executable(make_a_map src/make_a_map.cpp src/marker.cpp)
 
+add_executable(cv_demo src/cv_demo.cpp)
 #add_executable(vis_pose_publisher src/vis_pose_publisher.cpp)
 
 add_dependencies(sim_pose_publisher ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
@@ -51,6 +52,9 @@ target_link_libraries(make_a_map
   ${catkin_LIBRARIES}
 )
 
+target_link_libraries(cv_demo
+  ${catkin_LIBRARIES}
+)
 #target_link_libraries(vis_pose_publisher
 #   ${catkin_LIBRARIES}
 #)
