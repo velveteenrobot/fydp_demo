@@ -343,6 +343,24 @@ int main(int argc, char **argv)
 
     if (!waypoints.empty())
     {
+      /*
+      Going to try to avoid prior problems being 'ahead' of the fist waypoint by finding the closest waypoint to
+      current position, and selecting that at the target.
+      */
+      float rolling_error = 10000000.0;
+      std::vector<Pose>::iterator start_iterator;
+      for (std::vector<Pose>::iterator it = waypoints.begin(); it != waypoints.end(); it++){
+        Twist error = getError(pose, *it);
+        float mag_error = sqrt(pow(error.linear.x, 2.0) + pow(error.linear.y, 2.0));
+        if (mag_error < rolling_error)
+        {
+          rolling_error = mag_error;
+          start_iterator = it;
+        }   
+      }
+
+      waypoints.erase(waypoints.begin(), start_iterator);
+
       currentWaypoint = waypoints[1];
       //nextWaypoint = waypoints[1];
       //closestPos = nextWaypoint;
