@@ -37,6 +37,8 @@ static bool poseReady = false;
 static geometry_msgs::Pose pose;
 bool updateMap = true;
 
+int cnt = 0;
+
 double mapRes = 0.05;
 double mapWidth = 20;
 double mapHeight = 20;
@@ -183,7 +185,7 @@ std::vector< std::vector<double> > get_inverse_m_m(int M, int N, double theta, d
 
   //cout<<"Got bresenham"<<endl;
 
-  std::vector< std::vector<double> > invMod(bres.size(), std::vector<double>(3,0.4));
+  std::vector< std::vector<double> > invMod(bres.size(), std::vector<double>(3,0.1));
   
 
   for(int i = 0; i < invMod.size(); i++) 
@@ -195,7 +197,7 @@ std::vector< std::vector<double> > get_inverse_m_m(int M, int N, double theta, d
 
   if (r < rmax)
   {
-    invMod[bres.size() - 1][2] = 0.6;
+    invMod[bres.size() - 1][2] = 0.9;
     //invMod[bres.size() - 2][2] = 0.6;
     //invMod[bres.size() - 3][2] = 0.6;
     //cout<<invMod[bres.size() - 1][0]<< " " << invMod[bres.size() - 1][1]<< " "<< invMod[bres.size() - 1][2] <<endl;
@@ -288,6 +290,17 @@ void scan_callback(const sensor_msgs::LaserScan& msg)
 
           //Calculate updated log odds
           L[int(ix)][int(iy)] = L[int(ix)][int(iy)] + log(il/(1.0-il)) - LO[int(ix)][int(iy)];
+
+          if (L[int(ix)][int(iy)] > 5)
+            L[int(ix)][int(iy)] = 5;
+
+          if (L[int(ix)][int(iy)] < -5)
+            L[int(ix)][int(iy)] = -5;
+
+          //if (cnt%100 == 0)
+          //  cout<<"Log odds: "<<L[int(ix)][int(iy)]<<endl;
+
+          //cnt++;
         }
         if (i==3)
           cout<<endl;
@@ -303,6 +316,8 @@ void scan_callback(const sensor_msgs::LaserScan& msg)
     for (int j = 0; j < int (mapWidth/mapRes); j++)
     {
       knownMap[i][j] = exp(L[i][j])/(1+exp(L[i][j]));
+      if (knownMap[i][j] > 1.0)
+        cout<<"Greater than 1"<<endl;
     }
   }
 
