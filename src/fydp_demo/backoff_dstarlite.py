@@ -206,13 +206,15 @@ class dlite:
         self.last = self.s_start
         self.s_start = self.pos_buffer
         print self.s_start, self.s_goal
-        
+
+
         if self.newvis_flag:
+            print "updating planner vision"
             self.external_update_vision()
             if self.changed_nodes.shape[0] > 0:
                 self.sequential_deal()
             self.newvis_flag = False
-            
+        
         if self.newgoal_flag:
             print "For new goal"
             self.reset()
@@ -224,6 +226,7 @@ class dlite:
             path = self.get_path()        
         else:
             self.reset()
+            print "Computing path"
             self.compute_shortest_path()
             path = self.get_path()
             status = "Fine"
@@ -240,8 +243,9 @@ class dlite:
     def external_update_vision(self):
         if self.newvis_flag:
             self.prev_map = np.copy(self._map)
-            self.pure_map = np.copy(self.vis_buffer)
             changed_in_vision = self.vis_buffer - self.pure_map
+            self.pure_map = np.copy(self.vis_buffer)
+
             # new_backedoff_map is self._map compatible
             new_backedoff_map = self.get_backedoff_map(self.vis_buffer)	
             delta_nav_map = new_backedoff_map - self._map
@@ -251,7 +255,7 @@ class dlite:
             self.vis_buffer = np.zeros(self.vis_buffer.shape)
             
             self.newvis_flag = False
-        
+
     def get_backedoff_map(self, binary_map, rad=3):
         """Takes binary map (1 occupied), returns something that can go right into self._map"""
         """Basically, will apply a 'potential' field of radius rad around all obstacles to prevent
@@ -264,15 +268,17 @@ class dlite:
             m += binary_map * max_cost
             return m
         else:
-            m = np.ones(dim) + binary_map * max_cost
+            m = np.ones(dim) + (binary_map * max_cost)
             smeared = np.copy(binary_map)
             for i in range(rad):
                 r = i + 1
+                prev_smeared = np.copy(smeared)
                 smeared = utils.simple_erode(smeared)
-                diff = np.logical_xor(smeared, binary_map)
+                diff = np.logical_xor(smeared, prev_smeared)
                 
                 cost = max_cost * (1. - (float(r) / float(rad)))**2 / 100
-                m += cost
+
+                m += cost*diff
             return m
             
     def get_pred(self, coord):
