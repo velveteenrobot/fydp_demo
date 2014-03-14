@@ -16,8 +16,18 @@ class dlite:
         if _map is None:
             (_map, start, goal) = self.deal_with_test_cases(test_case)
 
+        # used in internal mode only
         self.real_map = _map
-        self._map = np.ones(_map.shape)
+        # self._map is what the algorithm actually computes over. It is not a binary map. 
+        #It is a float, with 1. being the lowest possible weight, representing fully traversible
+        # when used in back_off mode, it will contain the smeared out values to keep the robot 
+        # away from obstacles
+        self._map = np.ones(_map.shape)     
+        # self.prev_map stores the map form the prior planning cycle, used to compared edge weights 
+        self.prev_map = None
+        # self.pure_map should contain whatever the robot is feeding it. It should be in a 0. to 1.
+        # float format, with 1. being certain of obstacle
+        # self.pure_map should be considered of the same type as self.vis_buffer
         self.pure_map = np.ones(_map.shape)
             
         if srad is None:
@@ -40,9 +50,10 @@ class dlite:
         self.newpos_flag = False
         self.pos_buffer = np.array((-1,-1))
         self.newvis_flag = False
-        self.vis_buffer = np.zeros(_map.shape)
+        self.vis_buffer = np.zeros(_map.shape)		# considered paired with self.pure_map
         self.newgoal_flag = False
         self.newgoal_buffer = np.array((0,0))
+        self.delta_vision_update = False
         
         # Initialize() from the paper
         self.s_goal = goal
@@ -58,7 +69,6 @@ class dlite:
         self.U.add(k,self.s_goal)
         
         self.key_record = []
-
         
     def reset(self):
         """ Resets all memory effects, EXCEPT for map vision. 
@@ -178,12 +188,11 @@ class dlite:
         self.pos_buffer = np.copy(new_pos)
         self.newpos_flag = True
         
-    def extdrive_buffer_vis(self, delta_vis):
-        """ Buffers the change in vision from reality/ROS
-        .vis_buff is reset after used
+    def extdrive_buffer_vis(self, vision_update):
+        """ Copies the robot's current vision into .vis_buffer. Should be a binary map with 1 as 
+        obstacle.
         """
-        print "extdrive_buffer_vis: ", np.count_nonzero(delta_vis)
-        self.vis_buffer += delta_vis
+        self.vis_buffer = np.copy(vision_update)
         self.newvis_flag = True
         
     def extdrive_buffer_newgoal(self, new_goal):
@@ -206,7 +215,6 @@ class dlite:
             
         if self.newgoal_flag:
             print "For new goal"
-            old = copy.deepcopy(self.rhs)
             self.reset()
             self.s_goal = self.next_goal
             self.reset()
@@ -231,32 +239,42 @@ class dlite:
 
     def external_update_vision(self):
         if self.newvis_flag:
-            penalty_cost = np.sqrt(self._map.shape[0]**2 + self._map.shape[1]**2)
             self.prev_map = np.copy(self._map)
-            self.pure_map += penalty_cost*self.vis_buffer
-            self.backoff_obs()
-            self.changed_nodes = np.transpose(np.nonzero(np.logical_xor(self._map, self.prev_map)))
+            self.pure_map = np.copy(self.vis_buffer)
+            changed_in_vision = self.vis_buffer - self.pure_map
+            # new_backedoff_map is self._map compatible
+            new_backedoff_map = self.get_backedoff_map(self.vis_buffer)	
+            delta_nav_map = new_backedoff_map - self._map
+            self._map = new_backedoff_map
+            self.changed_nodes = np.transpose(np.nonzero(delta_nav_map))
             self.sort_changed_nodes()
             self.vis_buffer = np.zeros(self.vis_buffer.shape)
+            
             self.newvis_flag = False
-
-    def backoff_obs(self, rad=3):
-        penalty_cost = np.sqrt(self._map.shape[0]**2 + self._map.shape[1]**2)
-        binary_map = np.logical_not(self.pure_map > 1.0)
-        prev_map = np.copy(binary_map)
         
-        self._map = np.copy(self.pure_map)
+    def get_backedoff_map(self, binary_map, rad=3):
+        """Takes binary map (1 occupied), returns something that can go right into self._map"""
+        """Basically, will apply a 'potential' field of radius rad around all obstacles to prevent
+        the planner from planning too close to obstacles """
         
-        for i in range(rad):
-            r = i + 1
-            binary_map = utils.simple_erode(binary_map)
-            diff = np.logical_xor(binary_map, prev_map)
-            
-            # THIS COST FALL-OFF FUNCTION IS IMPORTANT AND TUNABLE
-            cost = penalty_cost * (1. - (float(r) / float(rad)))**2 / 100
-            
-            self._map += cost * diff
+        dim = binary_map.shape
+        max_cost = np.sqrt(dim[0]**2 + dim[1]**2)
+        if rad == 0:
+            m = np.ones(dim)
+            m += binary_map * max_cost
+            return m
+        else:
+            m = np.ones(dim) + binary_map * max_cost
+            smeared = np.copy(binary_map)
+            for i in range(rad):
+                r = i + 1
+                smeared = utils.simple_erode(smeared)
+                diff = np.logical_xor(smeared, binary_map)
                 
+                cost = max_cost * (1. - (float(r) / float(rad)))**2 / 100
+                m += cost
+            return m
+            
     def get_pred(self, coord):
         pred = np.zeros([8,2])
         pred_cnt = 0

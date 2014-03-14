@@ -40,16 +40,12 @@ def map_callback(data):
                     grid[i,j] = 0
                 else:
                     grid[i,j] = 1
-        if robot.prev_map is not None:
-            delta = np.logical_xor(np.asarray(robot.prev_map), grid)
-            robot.update_vision_gazebo(delta)
-            robot.temp_stupid = grid
-        robot.add_prev_map(grid)
+        robot.update_vision_gazebo(grid)
+        robot.debug_map = grid
     else:
         map_size = (data.info.height, data.info.width)
         map_ready = True
         map_res = float(data.info.resolution)
-
 
 def position_callback(data):
     global map_ready
@@ -87,40 +83,28 @@ if __name__ == '__main__':
     while map_ready is False:
         rospy.sleep(1)
     
-    robot.test_load()
+    robot.initialize_robot()
+    # This is a dummy sensor, it gets completly ignord
     robot.add_simulated_sensor('IGVC-lane.tif', 25, 0, 'lanes', occluded=False)
     #robot.add_simulated_sensor('IGVC-obs.tif', 25, 0, 'obstacles', occluded=True)
     robot.sensors[0]._map = np.zeros(map_size)
-    robot.combined_delta_bound_edges = np.zeros(map_size)
+    robot.combined_map = np.zeros(map_size)
     robot.load_planner()
-
-
-    VID_OUT = True
-
-    #robot.waypoints.append((100,300))path
-
-    #robot.current_vision = vision_test.get_robot_vision(m, robot.loc[0], robot.loc[1], robot.srad)
-    #robot.all_vision = robot.current_vision
 
     cnt = 0
     done = False
-    cnt = 0
-
-
-
-
 
     while not done:
         print "IN MAIN LOOP ", cnt
         robot.test_step()
-        if robot.temp_stupid is not None:
+        if robot.debug_map is not None:
             plt.figure()
             name = "vidout-%03d.png" %cnt
-            plt.imshow(robot.temp_stupid)
+            plt.imshow(robot.debug_map)
             plt.savefig(name)
             plt.close()
 
-        """
+        """ DEBUG PRINT CODE
         plt.figure()
         name = "vidout-%03d.png" %cnt
         
@@ -132,24 +116,7 @@ if __name__ == '__main__':
         plt.savefig(name)
         plt.close()
         """
-        
 
-        #for i in range(robot.path.shape[0]):
-        """
-        for i in range(len(robot.path)):
-            waypoint = Pose()
-            waypoint.position.x = robot.path[i,1]
-            print "x: " + str(robot.path[i,1])
-            waypoint.position.y = robot.path[i,0]
-            print "y: " + str(robot.path[i,0])
-            waypoint_array.poses.append(waypoint)
-        """
-        """
-        if robot.path.shape[0] < 11:
-            robot.loc = robot.path[-1,:]
-        else:
-            robot.loc = robot.path[10,:]
-        """
         waypoint_array = PoseArray();
         print robot.path
 
@@ -160,7 +127,6 @@ if __name__ == '__main__':
             waypoint.position.y = robot.path[i,0]
             print "y: " + str(robot.path[i,0])
             waypoint_array.poses.append(waypoint)
-
 
         for i in waypoint_array.poses:
             print i.position.x, i.position.y

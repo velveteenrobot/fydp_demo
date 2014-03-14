@@ -21,9 +21,8 @@ class mtRobot:
         
         self.planner = None
         self.path = []
-        
         self.sensors = []
-        self.combined_delta_bound_edges = []
+        self.combined_map = []
         
         self.simulation = simulation
 
@@ -33,6 +32,7 @@ class mtRobot:
         self.cnt = 0
 
         self.temp_stupid = None
+        self.DEBUG_PRINT = False
 
     def add_prev_map(self, p_map):
         self.prev_map = p_map
@@ -53,19 +53,18 @@ class mtRobot:
             self.run_planner()
         else:
             self.cnt += 1
-            #if time.clock() - self.t > 10.0:
-            #    import pdb; pdb.set_trace()
             print "in test step"
             self.update_planner_vision_map()
             self.update_planner_location(self.loc)
             self.run_planner()
 
-            plt.figure()
-            plt.imshow(self.planner._map)
-            plt.scatter(self.planner.s_start[1], self.planner.s_start[0])
-            plt.scatter(self.path[:,1], self.path[:,0])
-            name = "blehhhh-%03d.png" %self.cnt
-            plt.savefig(name)
+        if self.DEBUG_PRINT:
+                plt.figure()
+                plt.imshow(self.planner._map)
+                plt.scatter(self.planner.s_start[1], self.planner.s_start[0])
+                plt.scatter(self.path[:,1], self.path[:,0])
+                name = "blehhhh-%03d.png" %self.cnt
+                plt.savefig(name)
 
         
     def load_params(self, s_start, waypoints):
@@ -78,13 +77,10 @@ class mtRobot:
     def load_planner(self):
         self.planner = dstarlite.dlite(drive_mode='External', _map = np.ones(self.sensors[0]._map.shape), 
             start = self.o_start, goal=self.o_waypoints[0,:]    )
-        self.planner_last_map = np.ones((self.sensors[0]._map.shape))
         
     def update_planner_vision_map(self):
-        # gets a map delta and passes to planner
-        print "in robot delta: ", np.count_nonzero(self.combined_delta_bound_edges)
-        self.planner.extdrive_buffer_vis(np.copy(np.asarray(self.combined_delta_bound_edges)))
-        self.combined_delta_bound_edges = np.zeros(self.combined_delta_bound_edges.shape)
+        # Pushes the robot's current vision to planner
+        self.planner.extdrive_buffer_vis(self.combined_map)
         
     def update_planner_location(self, new_pos):
         # gets current robot position and passes into planner
@@ -99,13 +95,8 @@ class mtRobot:
         self.update_planner_goal(self.current_goal())
        
     def run_planner(self):
-#        stime = time.clock()
         status, path = self.planner.extdrive_compute()
-        self.planner_last_map = np.copy(self.planner._map)
         self.path = path
-#        self.planner_timer += time.clock() - stime
-#        print ("Planner time: ", time.clock() - stime)
-#        print ("Robot at: ", self.planner.s_start)
         
     def current_goal(self):
         """Get current coords to chase after."""
@@ -118,22 +109,18 @@ class mtRobot:
         else:
             return False
         
-    def test_load(self):
-        self.loc = (0,0)
-        #self.loc = (703,210)
-
-        self.waypoints.append((9*20,1*20))
-        self.waypoints.append((5*20,2*20))
-       
-        
+    def initialize_robot(self, start_loc = None, waypoints = None):
+        if start_loc is None:
+            self.loc = (0,0)
+        else:
+            self.loc = start_loc
+        if waypoints is None:
+            self.waypoints = []
+            self.waypoints.append((9*20,1*20))
+            self.waypoints.append((5*20,2*20)) 
+        else:
+            self.waypoints = waypoints
         self.load_params( np.asarray(self.loc), np.asarray(self.waypoints))
-      
-        
-        
-        # self.waypoints.append((40,125))
-        # self.waypoints.append((200,200))
-        # self.waypoints.append((20,360))
-        # self.waypoints.append((280, 250))
 
     def update_position(self, location):
         """ 
@@ -143,11 +130,10 @@ class mtRobot:
         self.loc[0] = location[0]
         self.loc[1] = location[1]
 
-    def update_vision_gazebo(self, delta):
-        if self.combined_delta_bound_edges == []:
-            self.combined_delta_bound_edges = np.zeros(self.prev_map.shape)
+    def update_vision_gazebo(self, new_vision):
+        """ Takes a threshold version of the ROS occupancy grid, expects 1 for obstacle, 0 for free """
         if not self.simulation:
-            self.combined_delta_bound_edges = np.logical_or(delta, self.combined_delta_bound_edges)
+            self.combined_map = np.copy(new_vision)
         
     def update_vision(self, data=None):
         """
@@ -155,10 +141,10 @@ class mtRobot:
         """
 
         if self.simulation:
-            self.combined_delta_bound_edges = np.zeros(self.sensors[0]._map.shape)
+            self.combined_map = np.zeros(self.sensors[0]._map.shape)
 
             for sensor in self.sensors:
                 sensor.update_simulated_vision(self.loc[0], self.loc[1])
-                self.combined_delta_bound_edges = np.logical_or(self.combined_delta_bound_edges, sensor.delta_bound_edges)
+                self.combined_map = np.logical_or(self.combined_map, sensor.current_bound_edges)
         
         
