@@ -31,7 +31,7 @@ add_executable(sim_pose_publisher src/sim_pose_publisher.cpp)
 
 add_executable(make_a_map src/make_a_map.cpp src/marker.cpp)
 
-add_executable(cv_demo src/cv_demo.cpp)
+add_executable(cv_demo src/cv_demo.cpp src/FlagDetector.cpp)
 #add_executable(vis_pose_publisher src/vis_pose_publisher.cpp)
 
 add_dependencies(sim_pose_publisher ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})

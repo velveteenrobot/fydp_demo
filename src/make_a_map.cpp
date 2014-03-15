@@ -39,7 +39,7 @@ bool updateMap = true;
 
 int cnt = 0;
 
-double mapRes = 0.05;
+double mapRes = 0.10;
 double mapWidth = 20;
 double mapHeight = 20;
 double robotMotion [3] = {0.5, 0, -0.5};

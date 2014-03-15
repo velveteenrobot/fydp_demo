@@ -20,6 +20,8 @@ from numpy import int64
 from numpy import int16
 
 global map_ready
+global pose_ready
+pose_ready = False
 map_ready = False
 global map_size
 global robot
@@ -40,14 +42,15 @@ def map_callback(data):
                     grid[i,j] = 0
                 else:
                     grid[i,j] = 1
-        robot.update_vision_gazebo(grid)
-        robot.debug_map = grid
+        robot.update_vision_gazebo(np.flipud(grid.T))
+        robot.debug_map = np.flipud(grid.T)
     else:
         map_size = (data.info.height, data.info.width)
         map_ready = True
         map_res = float(data.info.resolution)
 
 def position_callback(data):
+    global pose_ready
     global map_ready
     global robot
     global map_res
@@ -57,13 +60,14 @@ def position_callback(data):
         gazebo_y = data.Y;  gazebo_x = data.X
         # refer to turtlebot_example where we get shifted_point for the inverse math
         # now convert to planner frame of reference
-        planner_x = int(np.round(-gazebo_x / map_res + float(map_size[1]) / 2) )
-        planner_y = int(np.round(float(map_size[0]) / 2 + gazebo_y / map_res) )
+        planner_x = int(np.round(gazebo_x / map_res + float(map_size[1]) / 2) )
+        planner_y = int(np.round(float(map_size[0]) / 2 - gazebo_y / map_res) )
 
-        print gazebo_x, gazebo_y, planner_x, planner_y
+        #print gazebo_x, gazebo_y, planner_x, planner_y
 
         location.append(planner_y); location.append(planner_x)
         robot.update_position(location)
+        pose_ready = True
     else:
         pass
 
@@ -91,48 +95,44 @@ if __name__ == '__main__':
     robot.combined_map = np.zeros(map_size)
     robot.load_planner()
 
+    while pose_ready is False:
+        rospy.sleep(1)
+
     cnt = 0
     done = False
 
     while not done:
         print "IN MAIN LOOP ", cnt
         robot.test_step()
-        if robot.debug_map is not None:
-            plt.figure()
-            name = "vidout-%03d.png" %cnt
-            plt.imshow(robot.debug_map)
-            plt.savefig(name)
-            plt.close()
 
-        """ DEBUG PRINT CODE
         plt.figure()
-        name = "vidout-%03d.png" %cnt
-        
-        debug_map = np.logical_and(robot.sensors[0].memory_obstacle_map, robot.sensors[1].memory_obstacle_map)
-        plt.imshow(debug_map, cmap='gray')
+        name = "debug/vidout-%03d.png" %cnt
+        if cnt == 1:
+            pass
+            #import pdb; pdb.set_trace()
+        debug_map = robot.planner._map
+        plt.imshow(debug_map)
         plt.scatter(robot.loc[1], robot.loc[0], c='b')
-        plt.scatter(robot.path[:,1], robot.path[:,0], c='r')
-        path
+        plt.scatter(robot.path[:,1], robot.path[:,0], c='r', s=20, linewidths=0)
         plt.savefig(name)
         plt.close()
-        """
 
         waypoint_array = PoseArray();
-        print robot.path
+        print robot.loc, robot.current_goal()
 
         for i in range(robot.path.shape[0]):
             waypoint = Pose()
             waypoint.position.x = robot.path[i,1]
-            print "x: " + str(robot.path[i,1])
+            #print "x: " + str(robot.path[i,1])
             waypoint.position.y = robot.path[i,0]
-            print "y: " + str(robot.path[i,0])
+            #print "y: " + str(robot.path[i,0])
             waypoint_array.poses.append(waypoint)
 
         for i in waypoint_array.poses:
-            print i.position.x, i.position.y
-            
+            #print i.position.x, i.position.y
+            pass
         pub.publish(waypoint_array)
-        rospy.sleep(1.5)
+        rospy.sleep(0.5)
         
         if robot.is_at_current_goal():
             if robot.progress + 1 == len(robot.waypoints):

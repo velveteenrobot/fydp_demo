@@ -256,7 +256,7 @@ class dlite:
             
             self.newvis_flag = False
 
-    def get_backedoff_map(self, binary_map, rad=3):
+    def get_backedoff_map(self, binary_map, rad=6):
         """Takes binary map (1 occupied), returns something that can go right into self._map"""
         """Basically, will apply a 'potential' field of radius rad around all obstacles to prevent
         the planner from planning too close to obstacles """

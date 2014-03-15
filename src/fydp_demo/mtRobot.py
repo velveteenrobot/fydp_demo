@@ -80,11 +80,13 @@ class mtRobot:
         
     def update_planner_vision_map(self):
         # Pushes the robot's current vision to planner
+        print "in update_planner_vision_map"
         self.planner.extdrive_buffer_vis(self.combined_map)
         
     def update_planner_location(self, new_pos):
         # gets current robot position and passes into planner
         # planner will interpolate from its last position to keep the algorithm happy
+        print "update_planner_location"
         self.planner.extdrive_buffer_pos(new_pos)
         
     def update_planner_goal(self, new_goal):
@@ -116,8 +118,8 @@ class mtRobot:
             self.loc = start_loc
         if waypoints is None:
             self.waypoints = []
-            self.waypoints.append((9*20,1*20))
-            self.waypoints.append((5*20,2*20)) 
+            self.waypoints.append((9*10,19*10))
+            self.waypoints.append((5*10,2*10)) 
         else:
             self.waypoints = waypoints
         self.load_params( np.asarray(self.loc), np.asarray(self.waypoints))

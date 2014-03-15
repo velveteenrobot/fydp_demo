@@ -41,6 +41,25 @@ static bool poseReady = false;
 static Pose pose;
 vector<Pose> waypoints;
 bool waypointsDone = false;
+const double PROP_TIME = 0.2;
+
+Pose propogateDynamics(Pose start, float speed, float turnRate) {
+  Pose result = start;
+  double roll, pitch, yaw;
+
+  tf::Quaternion bt_q;
+  quaternionMsgToTF(start.orientation, bt_q);
+  tf::Matrix3x3(bt_q).getRPY(roll, pitch, yaw);
+
+  result.position.x += PROP_TIME * speed * cos(yaw);
+  result.position.y += PROP_TIME * speed * sin(yaw);
+  yaw += PROP_TIME * turnRate;
+
+  quaternionTFToMsg(
+      tf::createQuaternionFromRPY(roll, pitch, yaw),
+      result.orientation);
+  return result;
+}
 
 
 void pose_callback(const fydp_demo::ips_msg& msg)
@@ -90,57 +109,35 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
   std::vector<Pose> points;
   for (int i = 0; i < msg.poses.size(); i++)
   {
+    shifted_point.position.x = -(-float(msg.poses[i].position.x) + float(roomMap->getWidth())/2.0) * float(roomMap->getRes());
+    shifted_point.position.y = (-float(msg.poses[i].position.y) + float(roomMap->getHeight())/2.0) * float(roomMap->getRes());
+
+    if (!roomMap->isOccupied(shifted_point.position.x,shifted_point.position.y))
+    {
+      Pose offsetWaypoint;
+      offsetWaypoint = shifted_point;
+
+      waypoints.push_back(shifted_point);
+      points.push_back(offsetWaypoint);
+    }
+    else
+    {
+      if (waypoints.size() > 3)
+      {
+        waypoints.pop_back(); waypoints.pop_back(); waypoints.pop_back();
+      } else 
+      {
+        waypoints.clear();
+      }
+      break;
+    }
+
     
-    shifted_point.position.x = -(float(msg.poses[i].position.x) - float(roomMap->getWidth())/2.0)*float(roomMap->getRes());
-    shifted_point.position.y = -(float(msg.poses[i].position.y) - float(roomMap->getHeight())/2.0)*float(roomMap->getRes());
-    //shifted_point.position.y = (float(roomMap->getHeight()) - float(msg.poses[i].position.y))*float(roomMap->getRes()) + float(roomMap->getHeight())/2.0*float(roomMap->getRes()) + (2.0*float(msg.poses[i].position.y) - 2.0*float(roomMap->getHeight()))*float(roomMap->getRes()) + float(roomMap->getHeight())/2.0*float(roomMap->getRes());
-    //shifted_point.position.x = -float(msg.poses[i].position.x)*float(roomMap->getRes());
-    //cout<<"drawing marker: "<<shifted_point.position.x<<", "<<shifted_point.position.y<<endl;
-    //shifted_point.position.x = roomMap->getRes() * (float(msg.poses[i].position.y) - float(roomMap->getWidth()) / 2.0);
-    //shifted_point.position.y = -roomMap->getRes() * (float(msg.poses[i].position.x) + float(roomMap->getHeight()) / 2.0);
-
-
-    Pose offsetWaypoint;
-    offsetWaypoint = shifted_point;
-    //offsetWaypoint.position.x-= float(roomMap->getWidth())/2.0*float(roomMap->getRes());
-    //offsetWaypoint.position.y-= float(roomMap->getHeight())/2.0*float(roomMap->getRes());
-    //offsetWaypoint.position.x = float(msg.poses[i].position.x)*float(roomMap->getRes());
-    //offsetWaypoint.position.y = float(msg.poses[i].position.y)*float(roomMap->getRes());
-    
-
-    cout<<"Offset point: "<<offsetWaypoint.position.x<<", "<<offsetWaypoint.position.y<<endl;
-    cout<<"Shifted point: "<<shifted_point.position.x<<", "<<shifted_point.position.y<<endl;
-    cout<<"Original point: "<<msg.poses[i].position.x<<", "<<msg.poses[i].position.y<<endl;
-    cout<<"Map width: "<<float(roomMap->getWidth())<<", Map height: "<<float(roomMap->getHeight())<<", Map res: "<<float(roomMap->getRes())<<endl;
-    
-
-    waypoints.push_back(shifted_point);
-    points.push_back(offsetWaypoint);
   }
 
   drawLine(points);
   points.clear();
 
-
-  
-
-  //vector<Point> points;
-  
-
-
-  //drawLine(shifted_point);
-  //points.push_back(shifted_point.position);
-  //Pose closePose = shifted_point;
-
-  //closePose.position.x = shifted_point.position.x + 0.01;
-  //closePose.position.z = shifted_point.position.z + 0.5;
-  //points.push_back(closePose.position);
-
-  
-
-
-  
-  //drawLine(CARROT, points);
 }
 
 void waypoints_done_callback(std_msgs::Bool msg)
@@ -395,22 +392,28 @@ int main(int argc, char **argv)
       vel.angular.z += 1.0 * error.linear.y;
       // vel.angular.z -= 0.1 * error.angular.z;
 
-      velocityPublisher.publish(vel); // Publish the command velocity
-      ros::Duration(0.2).sleep();
+      Pose nextPose = propogateDynamics(pose, vel.linear.x, vel.angular.z);
+      if (roomMap->isOccupied(nextPose.position.x, nextPose.position.y))
+      {
+        waypoints.clear();
+        ros::spinOnce();
+      }
+      else
+      {
+        velocityPublisher.publish(vel); // Publish the command velocity
+        ros::Duration(0.1).sleep();
 
-      Pose offsetWaypoint;
-      offsetWaypoint = currentWaypoint;
-      //offsetWaypoint.position.x-= float(roomMap->getWidth())/2.0*float(roomMap->getRes());
-      //offsetWaypoint.position.y-= float(roomMap->getHeight())/2.0*float(roomMap->getRes());
+        Pose offsetWaypoint;
+        offsetWaypoint = currentWaypoint;
+        double norm = sqrt(pow(error.linear.x,2) + pow(error.linear.y,2));
+        drawPose(offsetWaypoint);
+        ros::spinOnce();
+        if(norm < 0.25)
+        {
+          waypoints.erase(waypoints.begin());
+        }
 
-
-      //offsetWaypoint.position.x = -offsetWaypoint.position.x;
-      //offsetWaypoint.position.y = offsetWaypoint.position.y + float(roomMap->getHeight())/2.0*float(roomMap->getRes());
-
-      drawPose(offsetWaypoint);
-      ros::spinOnce();
-      waypoints.erase(waypoints.begin());
-      
+      }
 
     }
     else

@@ -2,7 +2,6 @@ import numpy as np
 import scipy.misc
 
 import time
-import vision_test
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -28,7 +27,7 @@ class dlite:
             self.drive_mode = drive_mode
         elif drive_mode == 'external':
             self.drive_mode = drive_mode
-
+            
         # Initializing helper constants and records
         self.narray = np.array([[1,0], [0,1], [-1, 0], [0, -1], [1,1], [1,-1], [-1,1], [-1,-1]])
         self.loop_flag = np.array((-1,-1))
@@ -87,7 +86,13 @@ class dlite:
             
             for j in np.arange(succ.shape[0]):
                 if old_cost_list[j] > new_cost_list[j]:
-                    pass
+                    # then we look at p to succ(j,:) as well as succ(j,:) to p
+                    if not self.is_goal(p):
+                        next_rhs = min(self.get_rhs(p), new_cost_list[j] + self.get_g_score(succ[j,:]))
+                        self.set_rhs(p, next_rhs)
+                    if not self.is_goal(succ[j,:]):
+                        next_rhs = min(self.get_rhs(succ[j,:]), new_cost_list[j] + self.get_g_score(p))
+                        self.set_rhs(succ[j,:], next_rhs)
                 elif self.is_close(self.get_rhs(p), old_cost_list[j] + self.get_g_score(succ[j,:])):
                 # If p is the destination after node succ[j,:]
                     if not self.is_goal(p):
@@ -100,6 +105,7 @@ class dlite:
                         succ2 = self.get_succ(succ[j,:])
                         cost_list = self.gen_cost_list(succ[j,:], succ2, rolling_map) + self.rhs[succ2[:,0], succ2[:,1]]
                         self.set_rhs(succ[j,:], np.min(cost_list))
+                
 
         for i in np.arange(self.changed_nodes.shape[0]):
             p = self.changed_nodes[i,:]
@@ -224,7 +230,7 @@ class dlite:
             self.prev_map = np.copy(self._map)
             self.changed_nodes = np.transpose(np.nonzero(self.vis_buffer))
             self.sort_changed_nodes()
-            self._map += 10000*self.vis_buffer
+            self._map += penalty_cost*self.vis_buffer
             
             self.vis_buffer = np.zeros(self.vis_buffer.shape)
             self.newvis_flag = False
@@ -309,6 +315,9 @@ class dlite:
         
     def cost_list(self, point, list):
         return self.gen_cost_list(point, list, self._map)
+        
+    def cost(self, p1, p2):
+        return self.gen_cost(p1,p2, self._map)
         
     def gen_cost_list(self, point, list, weight_map):
         costs = (weight_map[ list[:,0], list[:,1] ] + weight_map[ point[0], point[1]] )* self.euclidean(point, list)
@@ -449,8 +458,6 @@ class dlite:
             goal = np.array((30,160))
         return (_map, start, goal)
         
-
-
 def test(case=None):
     if case is None:
         case = 1
@@ -462,12 +469,26 @@ def test(case=None):
     
 def simple_test():
     _map = np.ones((5,7))
-    _map[1:4, 4:5] = 100
+    _map[0:4, 4] = 100
     start = np.array((2,0))
     goal = np.array((2,6))
-    a = dlite(_map, start, goal)
+    a = dlite(_map = _map, start=start, goal=goal)
+    a._map = _map
     a.compute_shortest_path()
     a.last = a.s_start
     path = np.asarray(a.get_path())
     a.s_start = path[1,:]
     return a
+    
+def reduce_weight_simple_test(dlite):
+    dlite.prev_map = np.copy(dlite._map)
+    dlite._map[0:4, 4] = 1
+    d = []
+    d.append((0,4))
+    d.append((1,4))
+    d.append((2,4))
+    d.append((3,4))
+    dlite.changed_nodes = np.asarray(d)
+    dlite.sequential_deal()
+    dlite.compute_shortest_path()
+    
