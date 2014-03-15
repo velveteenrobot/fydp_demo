@@ -51,6 +51,19 @@ std::vector< std::vector<double> > LO(int(mapHeight/mapRes), std::vector<double>
 std::vector< std::vector<double> > L(int(mapHeight/mapRes), std::vector<double>(int(mapWidth/mapRes),0));
 ros::Publisher map_pub; 
 
+
+bool pixel_in_radius(Pose robot_position, int y_coord_map, int x_coord_map, int rad_limit_map)
+{
+  int robot_pos_x = int(robot_position.position.x / mapRes);
+  int robot_pos_y = int(robot_position.position.y / mapRes);
+
+  if (pow(robot_pos_x - x_coord_map,2) + pow(robot_pos_y - y_coord_map,2) <= pow(rad_limit_map,2)){
+    return true;
+  }
+  return false;
+
+}
+
 int round_int( double r ) 
 {
   if (r > 0.0)
@@ -185,7 +198,7 @@ std::vector< std::vector<double> > get_inverse_m_m(int M, int N, double theta, d
 
   //cout<<"Got bresenham"<<endl;
 
-  std::vector< std::vector<double> > invMod(bres.size(), std::vector<double>(3,0.1));
+  std::vector< std::vector<double> > invMod(bres.size(), std::vector<double>(3,0.3));
   
 
   for(int i = 0; i < invMod.size(); i++) 
@@ -197,7 +210,7 @@ std::vector< std::vector<double> > get_inverse_m_m(int M, int N, double theta, d
 
   if (r < rmax)
   {
-    invMod[bres.size() - 1][2] = 0.9;
+    invMod[bres.size() - 1][2] = 0.7;
     //invMod[bres.size() - 2][2] = 0.6;
     //invMod[bres.size() - 3][2] = 0.6;
     //cout<<invMod[bres.size() - 1][0]<< " " << invMod[bres.size() - 1][1]<< " "<< invMod[bres.size() - 1][2] <<endl;
@@ -267,10 +280,22 @@ void scan_callback(const sensor_msgs::LaserScan& msg)
     for (int i = 0; i < msg.ranges.size(); i++)
     {
       theta = yaw + (msg.angle_min  + msg.angle_increment*i);
-      if (!isnan(msg.ranges[i]/mapRes))
+      /*if (isnan(msg.ranges[i]/mapRes))
+      {
+        cout << "RANGE IS NAN: " << theta << endl;
+
+      }*/
+      if (true)
       {
         //cout<<"theta: "<< theta<<endl;
-        invMod = get_inverse_m_m(M, N, theta, msg.ranges[i]/mapRes, msg.range_max/mapRes);
+        if(!isnan(msg.ranges[i]/mapRes))
+        {
+          invMod = get_inverse_m_m(M, N, theta, msg.ranges[i]/mapRes, msg.range_max/mapRes);
+        }
+        else
+        {
+          invMod = get_inverse_m_m(M, N, theta, msg.range_max/mapRes, msg.range_max/mapRes);
+        }
 
         if(i==3)
           cout<<"invmod:"<<endl;
@@ -291,8 +316,8 @@ void scan_callback(const sensor_msgs::LaserScan& msg)
           //Calculate updated log odds
           L[int(ix)][int(iy)] = L[int(ix)][int(iy)] + log(il/(1.0-il)) - LO[int(ix)][int(iy)];
 
-          if (L[int(ix)][int(iy)] > 5)
-            L[int(ix)][int(iy)] = 5;
+          if (L[int(ix)][int(iy)] > 5000)
+            L[int(ix)][int(iy)] = 5000;
 
           if (L[int(ix)][int(iy)] < -5)
             L[int(ix)][int(iy)] = -5;
@@ -328,17 +353,30 @@ void scan_callback(const sensor_msgs::LaserScan& msg)
   {
     for (int j = 0; j < int (mapWidth/mapRes); j++)
     {
-      if (knownMap[i][j] == 0.5)
-        knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = -1;
-      /*else if (knownMap[i][j] >= 0.5)
-        knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = 100;*/
-      else 
-      {
+      Pose offset_pose = pose;
 
-        knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = min(100.0,knownMap[i][j]*100);
-        
+      // taking the tranpose
+      offset_pose.position.x = offset_pose.position.y;
+      offset_pose.position.y = pose.position.x;
+
+      // taking the 'negation'
+      //offset_pose.position.x = mapHeight - offset_pose.position.x;
+      //offset_pose.position.y = mapWidth - offset_pose.position.y;
+
+
+      if( ! pixel_in_radius(offset_pose, i, j, int(0.6/mapRes)   ))
+      {
+        if (knownMap[i][j] == 0.5)
+          knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = -1;
+        /*else if (knownMap[i][j] >= 0.5)
+          knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = 100;*/
+        else 
+        {
+
+          knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = min(100.0,knownMap[i][j]*100);
+          
+        }
       }
-        
     }
   }
 

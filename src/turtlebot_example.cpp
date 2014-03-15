@@ -40,16 +40,51 @@ static Map* roomMap = NULL;
 static bool poseReady = false;
 static Pose pose;
 vector<Pose> waypoints;
+vector<Pose> global_waypoints;
+vector<Pose> last_5_wayppoints;
+
+Pose random_search_point;
+int random_global_planner_count = 0;
+
+
 bool waypointsDone = false;
-const double PROP_TIME = 0.2;
+//const double PROP_TIME = 0.3;
+
+bool local_blocked = false;
 
 float calc_norm(float x1, float x2){
   return sqrt(pow(x1,2)+pow(x2,2));
 }
 
 
+Twist getError(Pose curPose, Pose nextPose) {
+  float xError = nextPose.position.x - curPose.position.x;
+  float yError = nextPose.position.y - curPose.position.y;
 
-Pose propogateDynamics(Pose start, float speed, float turnRate) {
+  tf::Quaternion q;
+  double unusedRoll, unusedPitch;
+  double curYaw, expectedYaw;
+
+  quaternionMsgToTF(curPose.orientation, q);
+  tf::Matrix3x3(q).getRPY(unusedRoll, unusedPitch, curYaw);
+  quaternionMsgToTF(nextPose.orientation, q);
+  tf::Matrix3x3(q).getRPY(unusedRoll, unusedPitch, expectedYaw);
+
+  Twist error;
+
+  error.angular.z = fmod(expectedYaw - curYaw, 2*PI);
+  if (error.angular.z > PI) {
+    error.angular.z -= PI;
+  }
+
+  // put x/y error in terms of the robot's orientation
+  error.linear.x = xError * cos(curYaw) + yError * sin(curYaw);
+  error.linear.y = xError * (-sin(curYaw)) + yError * cos(curYaw);
+
+  return error;
+}
+
+Pose propogateDynamics(Pose start, float speed, float turnRate, float prop_time) {
   Pose result = start;
   double roll, pitch, yaw;
 
@@ -57,9 +92,9 @@ Pose propogateDynamics(Pose start, float speed, float turnRate) {
   quaternionMsgToTF(start.orientation, bt_q);
   tf::Matrix3x3(bt_q).getRPY(roll, pitch, yaw);
 
-  result.position.x += PROP_TIME * speed * cos(yaw);
-  result.position.y += PROP_TIME * speed * sin(yaw);
-  yaw += PROP_TIME * turnRate;
+  result.position.x += prop_time * speed * cos(yaw);
+  result.position.y += prop_time * speed * sin(yaw);
+  yaw += prop_time * turnRate;
 
   quaternionTFToMsg(
       tf::createQuaternionFromRPY(roll, pitch, yaw),
@@ -68,7 +103,7 @@ Pose propogateDynamics(Pose start, float speed, float turnRate) {
 }
 
 Pose get_random_pos(Pose start) {
-  Pose result;
+  Pose result = start;
   bool running = true;
   while (running) {
     int r = rand() % 360;
@@ -76,8 +111,8 @@ Pose get_random_pos(Pose start) {
     float dist = d / 100.0;
     float MAX_DIST = 1.0;
     float rad = float(r) / 360.0 * 2 * PI;
-    result.position.x = start.position.x + cos(rad)*MAX_DIST * dist;
-    result.position.y = start.position.y + sin(rad)*MAX_DIST * dist;
+    result.position.x += + cos(rad)*MAX_DIST * dist;
+    result.position.y += + sin(rad)*MAX_DIST * dist;
 
     if (!roomMap->isOccupied(result.position.x,result.position.y)){
       return result;
@@ -122,7 +157,28 @@ void map_callback(const nav_msgs::OccupancyGrid& msg)
 
 void waypoints_callback(const geometry_msgs::PoseArray msg)
 {
-  waypoints.clear();
+  // should prevent global planner from transmitting into local planner while the local planner
+  // is trying to reach the random point (to avoid looping thorugh bad paths)
+  // will unblock itself after the second plan that is generated once the robot is close enough 
+  // to the random point. this is to garuntee a good path.
+  if (local_blocked)
+  {
+    Twist error = getError(pose, random_search_point);
+    float mag_error = sqrt(pow(error.linear.x, 2.0) + pow(error.linear.y, 2.0));
+    if (mag_error < 0.25 )
+    {
+      random_global_planner_count++;
+      if (random_global_planner_count == 2)
+      {
+        local_blocked = false;
+        random_global_planner_count = 0;
+        random_search_point = Pose();
+      }        
+    }
+  }
+
+
+  global_waypoints.clear();
   Pose shifted_point;
   quaternionTFToMsg(
       tf::createQuaternionFromRPY(0, 0, 0),
@@ -144,17 +200,17 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
       Pose offsetWaypoint;
       offsetWaypoint = shifted_point;
 
-      waypoints.push_back(shifted_point);
+      global_waypoints.push_back(shifted_point);
       points.push_back(offsetWaypoint);
     }
     else
     {
-      if (waypoints.size() > 3)
+      if (global_waypoints.size() > 5)
       {
-        waypoints.pop_back(); waypoints.pop_back(); waypoints.pop_back();
+        global_waypoints.pop_back(); global_waypoints.pop_back(); global_waypoints.pop_back();
       } else 
       {
-        waypoints.clear();
+        global_waypoints.clear();
       }
       break;
     }
@@ -261,32 +317,7 @@ std::vector< std::vector<int> > bresenham(int x0,int y0,int x1,int y1)
   return q;
 }
 
-Twist getError(Pose curPose, Pose nextPose) {
-  float xError = nextPose.position.x - curPose.position.x;
-  float yError = nextPose.position.y - curPose.position.y;
 
-  tf::Quaternion q;
-  double unusedRoll, unusedPitch;
-  double curYaw, expectedYaw;
-
-  quaternionMsgToTF(curPose.orientation, q);
-  tf::Matrix3x3(q).getRPY(unusedRoll, unusedPitch, curYaw);
-  quaternionMsgToTF(nextPose.orientation, q);
-  tf::Matrix3x3(q).getRPY(unusedRoll, unusedPitch, expectedYaw);
-
-  Twist error;
-
-  error.angular.z = fmod(expectedYaw - curYaw, 2*PI);
-  if (error.angular.z > PI) {
-    error.angular.z -= PI;
-  }
-
-  // put x/y error in terms of the robot's orientation
-  error.linear.x = xError * cos(curYaw) + yError * sin(curYaw);
-  error.linear.y = xError * (-sin(curYaw)) + yError * cos(curYaw);
-
-  return error;
-}
 
 void spinOnce(ros::Rate& loopRate) {
   loopRate.sleep(); //Maintain the loop rate
@@ -336,34 +367,20 @@ int main(int argc, char **argv)
   cout<<"Map width: "<<roomMap->getWidth()<<endl;
   cout<<"Map heigh: "<<roomMap->getHeight()<<endl;
 
-  /*cout<<"Wait for all waypoints"<<endl;
-  while (waypointsDone==false){spinOnce
-    spinOnce(loopRate);
-  }*/
-  // plan a path
   cout<<"Running local planner"<<endl;
 
-  
-
-
-  //typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
-  //tell the action client that we want to spin a thread by default
-  //MoveBaseClient ac("move_base", true);
-  //move_base_msgs::MoveBaseGoal goal;
 
   Pose currentWaypoint;
-  //Pose nextWaypoint;
-  //Pose closestPos;
-  //double closestDist = 1000;
-
-  //wait for the action server to come up
-  /*while(!ac.waitForServer(ros::Duration(5.0))){
-    ROS_INFO("Waiting for the move_base action server to come up");
-  }*/
 
   while (true)
   {
     //cout<< "Num waypoints: "<< waypoints.size()<<endl;
+
+    if (!local_blocked)
+    {
+      waypoints = global_waypoints;
+    }  
+
 
     if (!waypoints.empty())
     {
@@ -383,7 +400,16 @@ int main(int argc, char **argv)
         }   
       }
 
+      
+      
       waypoints.erase(waypoints.begin(), start_iterator);
+
+      last_5_wayppoints.push_back(waypoints[0]);
+
+      if (waypoints.size() >= 5)
+      {
+        last_5_wayppoints.pop_back();
+      }
 
       currentWaypoint = waypoints[1];
 
@@ -391,20 +417,29 @@ int main(int argc, char **argv)
       // calculating error and generating a velocity command
       Twist vel;
       Twist error = getError(pose, currentWaypoint);
-      cout<<"Error x: "<<error.linear.x
+      /*cout<<"Error x: "<<error.linear.x
           <<", y: "<<error.linear.y
-          <<", yaw: "<<error.angular.z<<endl;
-      vel.linear.x += 0.6 * error.linear.x;
+          <<", yaw: "<<error.angular.z<<endl;*/
+      vel.linear.x += 1.0 * error.linear.x;
       vel.angular.z += 1.0 * error.linear.y;
-      // vel.angular.z -= 0.1 * error.angular.z;
 
       // checking if the command is valid
-      Pose nextPose = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z);
-      if (roomMap->isOccupied(nextPose.position.x, nextPose.position.y))
+      Pose nextPose1 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.1);
+      Pose nextPose2 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.2);
+      Pose nextPose3 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.3);
+      if (roomMap->isOccupied(nextPose1.position.x, nextPose1.position.y) || roomMap->isOccupied(nextPose2.position.x, nextPose2.position.y) || roomMap->isOccupied(nextPose3.position.x, nextPose3.position.y) )
       {
+        local_blocked = true;
+        cout << "GOING RANDOM!" << endl;
         waypoints.clear();
-        Pose random_goal = get_random_pos(pose);
+        waypoints = last_5_wayppoints;
+
+        Pose random_goal = get_random_pos(last_5_wayppoints[4]);
+        random_search_point = random_goal;
+        random_global_planner_count = 0;
         waypoints.push_back(random_goal);
+
+        //waypoints.push_back(random_goal);
         ros::spinOnce();
       }
       else
@@ -417,7 +452,7 @@ int main(int argc, char **argv)
         double norm = calc_norm(error.linear.x, error.linear.y);
         drawPose(offsetWaypoint);
         ros::spinOnce();
-        if(norm < 0.25)
+        if(norm < 0.3)
         {
           waypoints.erase(waypoints.begin());
         }
@@ -426,6 +461,7 @@ int main(int argc, char **argv)
 
     }
     else
+      local_blocked = false;
       spinOnce(loopRate);
       
   }

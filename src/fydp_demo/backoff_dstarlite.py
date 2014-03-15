@@ -256,7 +256,7 @@ class dlite:
             
             self.newvis_flag = False
 
-    def get_backedoff_map(self, binary_map, rad=6):
+    def get_backedoff_map(self, binary_map, rad=10):
         """Takes binary map (1 occupied), returns something that can go right into self._map"""
         """Basically, will apply a 'potential' field of radius rad around all obstacles to prevent
         the planner from planning too close to obstacles """
@@ -276,8 +276,12 @@ class dlite:
                 smeared = utils.simple_erode(smeared)
                 diff = np.logical_xor(smeared, prev_smeared)
                 
-                cost = max_cost * (1. - (float(r) / float(rad)))**2 / 100
-
+                if r <= 3:
+                    """ Fully weight expansion """
+                    cost = max_cost
+                else:
+                    """ Potential field decay """
+                    cost = max_cost * (1. - (float(r-3) / float(rad-3)))**2 
                 m += cost*diff
             return m
             
