@@ -43,6 +43,12 @@ vector<Pose> waypoints;
 bool waypointsDone = false;
 const double PROP_TIME = 0.2;
 
+float calc_norm(float x1, float x2){
+  return sqrt(pow(x1,2)+pow(x2,2));
+}
+
+
+
 Pose propogateDynamics(Pose start, float speed, float turnRate) {
   Pose result = start;
   double roll, pitch, yaw;
@@ -59,6 +65,25 @@ Pose propogateDynamics(Pose start, float speed, float turnRate) {
       tf::createQuaternionFromRPY(roll, pitch, yaw),
       result.orientation);
   return result;
+}
+
+Pose get_random_pos(Pose start) {
+  Pose result;
+  bool running = true;
+  while (running) {
+    int r = rand() % 360;
+    int d = rand() % 50 + 50;
+    float dist = d / 100.0;
+    float MAX_DIST = 1.0;
+    float rad = float(r) / 360.0 * 2 * PI;
+    result.position.x = start.position.x + cos(rad)*MAX_DIST * dist;
+    result.position.y = start.position.y + sin(rad)*MAX_DIST * dist;
+
+    if (!roomMap->isOccupied(result.position.x,result.position.y)){
+      return result;
+    }
+  }
+
 }
 
 
@@ -109,9 +134,11 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
   std::vector<Pose> points;
   for (int i = 0; i < msg.poses.size(); i++)
   {
+    // converting from planner frame to gazebo/rviz frame
     shifted_point.position.x = -(-float(msg.poses[i].position.x) + float(roomMap->getWidth())/2.0) * float(roomMap->getRes());
     shifted_point.position.y = (-float(msg.poses[i].position.y) + float(roomMap->getHeight())/2.0) * float(roomMap->getRes());
 
+    // truncates paths if they intersect with obstacle
     if (!roomMap->isOccupied(shifted_point.position.x,shifted_point.position.y))
     {
       Pose offsetWaypoint;
@@ -359,30 +386,9 @@ int main(int argc, char **argv)
       waypoints.erase(waypoints.begin(), start_iterator);
 
       currentWaypoint = waypoints[1];
-      //nextWaypoint = waypoints[1];
-      //closestPos = nextWaypoint;
-      //closestDist = sqrt(pow(pose.position.x - nextWaypoint.position.x, 2) + pow(pose.position.y - nextWaypoint.position.y, 2));
 
-      //int x1 = currentWaypoint.position.x;
-      //int x2 = nextWaypoint.position.x;
-      //int y1 = currentWaypoint.position.y;
-      //int y2 = nextWaypoint.position.y;
-
-      //std::vector< std::vector<int> > bres = bresenham(x1, y1, x2, y2);
-
-      //iterate through check which point is closest to current position
-      /*for (int i=0; i < bres.size(); i++)
-      {
-        double dist = sqrt(pow(pose.position.x - bres[i][0], 2) + pow(pose.position.y - bres[i][1], 2));
-        if (dist < closestDist)
-        {
-          closestPos.position.x = bres[i][0];
-          closestPos.position.y = bres[i][1];
-          closestDist = dist;
-        }
-          
-      }
-      */
+      
+      // calculating error and generating a velocity command
       Twist vel;
       Twist error = getError(pose, currentWaypoint);
       cout<<"Error x: "<<error.linear.x
@@ -392,10 +398,13 @@ int main(int argc, char **argv)
       vel.angular.z += 1.0 * error.linear.y;
       // vel.angular.z -= 0.1 * error.angular.z;
 
-      Pose nextPose = propogateDynamics(pose, vel.linear.x, vel.angular.z);
+      // checking if the command is valid
+      Pose nextPose = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z);
       if (roomMap->isOccupied(nextPose.position.x, nextPose.position.y))
       {
         waypoints.clear();
+        Pose random_goal = get_random_pos(pose);
+        waypoints.push_back(random_goal);
         ros::spinOnce();
       }
       else
@@ -405,7 +414,7 @@ int main(int argc, char **argv)
 
         Pose offsetWaypoint;
         offsetWaypoint = currentWaypoint;
-        double norm = sqrt(pow(error.linear.x,2) + pow(error.linear.y,2));
+        double norm = calc_norm(error.linear.x, error.linear.y);
         drawPose(offsetWaypoint);
         ros::spinOnce();
         if(norm < 0.25)
