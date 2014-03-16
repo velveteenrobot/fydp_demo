@@ -75,12 +75,12 @@ public:
     // Update GUI Window
     //cv::imshow(VIDEO_FEED, cv_ptr->image + flagMat);
     cv::imshow(VIDEO_FEED,  laneMat);
-    cv::imshow(ORIG_FEED, cv_ptr->image);
+    //cv::imshow(ORIG_FEED, cv_ptr->image);
     cv::waitKey(3);
     
     // Output modified video stream
 	// Redirect pointer to the threshold image
-	//cv_ptr->image = imgThres.clone();
+	cv_ptr->image = laneMat.clone();
     image_pub_.publish(cv_ptr->toImageMsg());
 
 	}
