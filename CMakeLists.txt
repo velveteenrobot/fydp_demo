@@ -31,8 +31,9 @@ add_executable(sim_pose_publisher src/sim_pose_publisher.cpp)
 
 add_executable(make_a_map src/make_a_map.cpp src/marker.cpp)
 
-add_executable(cv_demo src/cv_demo.cpp src/FlagDetector.cpp)
-#add_executable(vis_pose_publisher src/vis_pose_publisher.cpp)
+add_executable(cv_demo_flag src/cv_demo_flag.cpp src/FlagDetector.cpp)
+
+add_executable(cv_demo_lane src/cv_demo_lane.cpp src/BallTracking.cpp src/cvaux.cpp src/cvcolor.cpp src/cvcontour.cpp src/cvlabel.cpp src/cvtrack.cpp src/LaneDetector.cpp)
 
 add_dependencies(sim_pose_publisher ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 add_dependencies(turtlebot_example ${PROJECT_NAME}_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
@@ -52,9 +53,10 @@ target_link_libraries(make_a_map
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(cv_demo
+target_link_libraries(cv_demo_flag
   ${catkin_LIBRARIES}
 )
-#target_link_libraries(vis_pose_publisher
-#   ${catkin_LIBRARIES}
-#)
+
+target_link_libraries(cv_demo_lane
+   ${catkin_LIBRARIES}
+)

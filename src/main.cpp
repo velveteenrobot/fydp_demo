@@ -10,13 +10,12 @@ using namespace cv;
 
 int main()
 {
-
     VideoCapture capture;
     //open capture object at location zero (default location for webcam)
 
-    //capture.open(0);
+    capture.open(0);
 
-   capture.open("C:\\Users\\andylee\\Downloads\\2014-03-13 21.04.32.mp4");
+    //capture.open("")
 
     //some video file
     //capture.open("red-test.jpg")
@@ -39,11 +38,11 @@ int main()
         capture.read(cameraFeed);
 
         //show the current image
+        imshow("Original Image",cameraFeed);
 
-		flagMat= myFlagDetector.getBoundingBoxes(cameraFeed);
-		imshow("Original Image",cameraFeed + flagMat);
+        flagMat= myFlagDetector.getFlag(cameraFeed);
 
-        //imshow("Flag Image",flagMat);
+        imshow("Flag Image",flagMat);
 
         waitKey(30);
     }
