@@ -27,6 +27,12 @@ private:
 	// HSV parameters
 	double v_threshold;
 	double s_threshold;
+
+	cv::Mat compute_saliency (cv::Mat lab_image);
+	cv::Mat saliency_lanes_static(cv::Mat image, int win_ratio_x, int win_ratio_y);
+	cv::Mat cluster_check(cv::Mat subwindow, cv::Mat submap);
+	cv::Mat lane_verify(cv::Mat gray_image, cv::Mat lane_mask, int win_ratio_x, int win_ratio_y);
+	cv::Mat hsv_verify(cv::Mat image, int v_threshold, int s_threshold);
 };
 
 // end of LaneDetector.h file

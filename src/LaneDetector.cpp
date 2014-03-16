@@ -29,7 +29,7 @@ inline double round( double d )
     return floor( d + 0.5 );
 }
 
-cv::Mat compute_saliency (cv::Mat lab_image)
+cv::Mat LaneDetector::compute_saliency (cv::Mat lab_image)
 {
 	lab_image.convertTo(lab_image, CV_32F);
 	lab_image = lab_image/255;
@@ -48,7 +48,7 @@ cv::Mat compute_saliency (cv::Mat lab_image)
 	return saliency / maxVal;
 }
 
-cv::Mat saliency_lanes_static(cv::Mat image, int win_ratio_x, int win_ratio_y)
+cv::Mat LaneDetector::saliency_lanes_static(cv::Mat image, int win_ratio_x, int win_ratio_y)
 {
     cv::Size s = image.size();
     int rows = s.height;
@@ -75,7 +75,7 @@ cv::Mat saliency_lanes_static(cv::Mat image, int win_ratio_x, int win_ratio_y)
             cv::Mat subimage = lab_image.colRange(left, right).rowRange(top, bottom);
             cv::Mat submap_out = compute_saliency(subimage);
 
-            cv::Mat sub_bin_out = submap_out > saliency_threshold;
+            cv::Mat sub_bin_out = submap_out > saliency_threshold_static;
 
 			submap_out = submap_out * 255;
 			sub_bin_out = sub_bin_out * 255;
@@ -86,7 +86,7 @@ cv::Mat saliency_lanes_static(cv::Mat image, int win_ratio_x, int win_ratio_y)
 	return saliency_bin_out;
 }
 
-cv::Mat cluster_check(cv::Mat subwindow, cv::Mat submap)
+cv::Mat LaneDetector::cluster_check(cv::Mat subwindow, cv::Mat submap)
 {
     cv::Size s = subwindow.size();
     int rows = s.height;
@@ -108,7 +108,7 @@ cv::Mat cluster_check(cv::Mat subwindow, cv::Mat submap)
 			cvSet(individualBlobImg, CV_RGB(0, 0, 0));
 			cv::cvtColor(temp, temp, CV_GRAY2BGR);
 			iplsubmap = temp;
-			cvRenderBlobs(labelImg, *it->second, &iplsubmap, individualBlobImg, CV_BLOB_RENDER_COLOR);
+			cvb::cvRenderBlobs(labelImg, *it->second, &iplsubmap, individualBlobImg, CV_BLOB_RENDER_COLOR);
 			cv::Mat output(individualBlobImg);			
 			cv::vector<cv::Mat> channels(3);
 			split(output, channels);
@@ -128,7 +128,7 @@ cv::Mat cluster_check(cv::Mat subwindow, cv::Mat submap)
 	return verified_map_out;
 }
 
-cv::Mat lane_verify(cv::Mat gray_image, cv::Mat lane_mask, int win_ratio_x, int win_ratio_y)
+cv::Mat LaneDetector::lane_verify(cv::Mat gray_image, cv::Mat lane_mask, int win_ratio_x, int win_ratio_y)
 {
     cv::Size s = gray_image.size();
     int rows = s.height;
@@ -151,7 +151,7 @@ cv::Mat lane_verify(cv::Mat gray_image, cv::Mat lane_mask, int win_ratio_x, int 
 
             cv::Mat subwindow = gray_image.colRange(left, right).rowRange(top, bottom);
             cv::Mat submap = lane_mask.colRange(left, right).rowRange(top, bottom);
-            cv::Mat submap_out = cluster_check(subwindow, submap, fisher_threshold, minimum_pixel_count);
+            cv::Mat submap_out = cluster_check(subwindow, submap);
 			submap_out.copyTo(lane_map.colRange(left, right).rowRange(top, bottom));
         }
     }
@@ -176,7 +176,7 @@ cv::Mat lane_verify(cv::Mat gray_image, cv::Mat lane_mask, int win_ratio_x, int 
 	return output;
 }
 
-cv::Mat hsv_verify(cv::Mat image, int v_threshold, int s_threshold)
+cv::Mat LaneDetector::hsv_verify(cv::Mat image, int v_threshold, int s_threshold)
 {
 	cv::Size s = image.size();
     cv::Mat hsv_image;
@@ -198,8 +198,8 @@ cv::Mat LaneDetector::getLane(cv::Mat image)
 	cv::GaussianBlur(image, image_blurred, cv::Size(7, 7), 0, 0);
     cvtColor(image_blurred, gray_image, CV_BGR2GRAY );
 
-    cv::Mat saliency_initial_lane_map_static = saliency_lanes_static(image_blurred, saliency_threshold_static, saliency_subwindows_static_x, saliency_subwindows_static_y);
-	cv::Mat saliency_verified_lane_map_static = lane_verify(gray_image, saliency_initial_lane_map_static, saliency_subwindows_static_x, saliency_subwindows_static_y, fisher_threshold_saliency_static, minimum_pixel_count, intensity_threshold);
+    cv::Mat saliency_initial_lane_map_static = saliency_lanes_static(image_blurred, saliency_subwindows_static_x, saliency_subwindows_static_y);
+	cv::Mat saliency_verified_lane_map_static = lane_verify(gray_image, saliency_initial_lane_map_static, saliency_subwindows_static_x, saliency_subwindows_static_y);
 	
     cv::Mat hsv_mask = hsv_verify(image, v_threshold, s_threshold);
 	cv::Mat hsv_lane_map;
