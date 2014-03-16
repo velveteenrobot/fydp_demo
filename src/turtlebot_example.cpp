@@ -14,6 +14,7 @@
 #include <actionlib/client/simple_action_client.h>
 
 #include "turtlebot_example.h"
+#include "local_planner_utils.h"
 #include "Map.h"
 #include "marker.h"
 
@@ -51,76 +52,6 @@ bool waypointsDone = false;
 //const double PROP_TIME = 0.3;
 
 bool local_blocked = false;
-
-float calc_norm(float x1, float x2){
-  return sqrt(pow(x1,2)+pow(x2,2));
-}
-
-
-Twist getError(Pose curPose, Pose nextPose) {
-  float xError = nextPose.position.x - curPose.position.x;
-  float yError = nextPose.position.y - curPose.position.y;
-
-  tf::Quaternion q;
-  double unusedRoll, unusedPitch;
-  double curYaw, expectedYaw;
-
-  quaternionMsgToTF(curPose.orientation, q);
-  tf::Matrix3x3(q).getRPY(unusedRoll, unusedPitch, curYaw);
-  quaternionMsgToTF(nextPose.orientation, q);
-  tf::Matrix3x3(q).getRPY(unusedRoll, unusedPitch, expectedYaw);
-
-  Twist error;
-
-  error.angular.z = fmod(expectedYaw - curYaw, 2*PI);
-  if (error.angular.z > PI) {
-    error.angular.z -= PI;
-  }
-
-  // put x/y error in terms of the robot's orientation
-  error.linear.x = xError * cos(curYaw) + yError * sin(curYaw);
-  error.linear.y = xError * (-sin(curYaw)) + yError * cos(curYaw);
-
-  return error;
-}
-
-Pose propogateDynamics(Pose start, float speed, float turnRate, float prop_time) {
-  Pose result = start;
-  double roll, pitch, yaw;
-
-  tf::Quaternion bt_q;
-  quaternionMsgToTF(start.orientation, bt_q);
-  tf::Matrix3x3(bt_q).getRPY(roll, pitch, yaw);
-
-  result.position.x += prop_time * speed * cos(yaw);
-  result.position.y += prop_time * speed * sin(yaw);
-  yaw += prop_time * turnRate;
-
-  quaternionTFToMsg(
-      tf::createQuaternionFromRPY(roll, pitch, yaw),
-      result.orientation);
-  return result;
-}
-
-Pose get_random_pos(Pose start) {
-  Pose result = start;
-  bool running = true;
-  while (running) {
-    int r = rand() % 360;
-    int d = rand() % 50 + 50;
-    float dist = d / 100.0;
-    float MAX_DIST = 1.0;
-    float rad = float(r) / 360.0 * 2 * PI;
-    result.position.x += + cos(rad)*MAX_DIST * dist;
-    result.position.y += + sin(rad)*MAX_DIST * dist;
-
-    if (!roomMap->isOccupied(result.position.x,result.position.y)){
-      return result;
-    }
-  }
-
-}
-
 
 void pose_callback(const fydp_demo::ips_msg& msg)
 {
@@ -230,92 +161,6 @@ void waypoints_done_callback(std_msgs::Bool msg)
   cout<<"Finished waypoints done callback"<<endl;
 }
 
-std::vector< std::vector<int> > bresenham(int x0,int y0,int x1,int y1)
-{
-  
-  bool steep = abs(y1 - y0) > abs(x1 - x0);
-
-  if (steep)
-  {
-    x0 = (x0+y0) - (y0=x0);
-    x1 = (x1+y1) - (y1=x1);
-  }
-
-  int dx=abs(x1-x0);
-  int dy=abs(y1-y0);
-  int error = dx / 2;
-  int ystep;
-  int y = y0;
-
-  int inc;
-
-  std::vector< std::vector<int> > q(dx, std::vector<int>(2,0));
-
-  
-  if (x0 < x1)
-  {
-    inc = 1; 
-  }
-  else 
-  {
-    inc = -1;
-  }
-  if (y0 < y1)
-  {
-    ystep = 1;
-  }
-  else 
-  {
-    ystep = -1;
-  }
-
-  int i= 0;
-
-  for (int x = x0; x < x1; x+=inc)
-  {
-    if (steep)
-    {
-      q[i][0] = y;
-      q[i][1] = x;
-    }
-    else 
-    {
-      q[i][0] = x;
-      q[i][1] = y;
-    }
-
-    error = error - dy;
-    if (error < 0)
-     {
-      y = y + ystep;
-      error = error + dx;
-     } 
-     i++;        
-  }
-
-  for (int x = x0; x > x1; x+=inc)
-  {
-    if (steep)
-    {
-      q[i][0] = y;
-      q[i][1] = x;
-    }
-    else 
-    {
-      q[i][0] = x;
-      q[i][1] = y;
-    }
-
-    error = error - dy;
-    if (error < 0)
-     {
-      y = y + ystep;
-      error = error + dx;
-     } 
-     i++; 
-  }
-  return q;
-}
 
 
 
@@ -323,6 +168,53 @@ void spinOnce(ros::Rate& loopRate) {
   loopRate.sleep(); //Maintain the loop rate
   ros::spinOnce();   //Check for new messages
 }
+
+vector<Pose> get_local_planner_path()
+{
+
+}
+
+
+
+Pose perpendicular_step(Pose current, Pose target)
+{
+  float cx = current.position.x;
+  float cy = current.position.y;
+  float tx = current.position.x;
+  float ty = current.position.y;
+
+  float delta_x = target.position.x - current.position.x;
+  float delta_y = target.position.y - current.position.y;
+  float norm = calc_norm(delta_x, delta_y);
+
+  float pdelta_x = - delta_y / norm;
+  float pdelta_y = delta_x / norm;
+
+  bool running = true;
+  int i = 1;
+  float scale = 0.1;
+  int target_step = 0;
+  while (running)
+  {
+    if (has_los(cx,cy, tx+i*pdelta_x*scale, ty+i*pdelta_y*scale, roomMap))
+    {
+      running = false;
+      target_step = i+2;
+    }
+    if (has_los(cx,cy, tx-i*pdelta_x*scale, ty-i*pdelta_y*scale, roomMap))
+    {
+      running = false;
+      target_step =  -(i+2);
+    }
+    i++;
+  }
+  Pose new_target = target;
+  new_target.position.x = target_step*pdelta_x*scale;
+  new_target.position.y = target_step*pdelta_y*scale;
+  return new_target;
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -434,7 +326,7 @@ int main(int argc, char **argv)
         waypoints.clear();
         waypoints = last_5_wayppoints;
 
-        Pose random_goal = get_random_pos(last_5_wayppoints[4]);
+        Pose random_goal = get_random_pos(last_5_wayppoints[4], roomMap);
         random_search_point = random_goal;
         random_global_planner_count = 0;
         waypoints.push_back(random_goal);
