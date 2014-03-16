@@ -109,17 +109,24 @@ class mtRobot:
         if (self.loc[0] - self.waypoints[self.progress][0])**2 + (self.loc[1] - self.waypoints[self.progress][1])**2 < threshold **2:
             return True
         else:
-            return False
+            return Falset 
         
     def initialize_robot(self, start_loc = None, waypoints = None):
         if start_loc is None:
-            self.loc = (0,0)
+            start_config_file = open("../../config/planner_start.txt", "r")
+            l = start_config_file.readline().split(",")
+            self.loc = (int(l[0].strip()), int(l[1].strip()))
+            #self.loc = (0,0)
         else:
             self.loc = start_loc
         if waypoints is None:
             self.waypoints = []
-            self.waypoints.append((9*10,19*10))
-            self.waypoints.append((5*10,2*10)) 
+            waypoint_config_file = open("../../config/waypoints_start.txt", "r")
+            for line in waypoint_config_file:
+                l = [x.strip() for x in line.split(",")]
+                self.waypoints.append((int(l[0]), int(l[1])))
+            #self.waypoints.append((9*10,19*10))
+            #self.waypoints.append((5*10,2*10)) 
         else:
             self.waypoints = waypoints
         self.load_params( np.asarray(self.loc), np.asarray(self.waypoints))
