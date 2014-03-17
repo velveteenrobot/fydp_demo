@@ -128,10 +128,12 @@ int get_closest_waypoint(Pose current_pose, vector<Pose> waypoint_list)
 }
 bool has_los(int x1,int y1,int x2,int y2, Map* roomMap)
 {
+  Pose temp;
   std::vector< std::vector<int> > bres = bresenham(x1, y1, x2, y2);
   for (int i = 0; i < bres.size(); i++)
   {
-    if (roomMap->isOccupied(bres[i][0], bres[i][1]))
+    temp.position.x = bres[i][0]; temp.position.y = bres[i][1];
+    if (roomMap->robotAreaOccupied(temp)
     {
       return false;
     }
