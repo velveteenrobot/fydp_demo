@@ -256,13 +256,13 @@ class dlite:
             
             self.newvis_flag = False
 
-    def get_backedoff_map(self, binary_map, hard_rad=2, soft_rad=1):
+    def get_backedoff_map(self, binary_map, hard_rad=3, soft_rad=3):
         """Takes binary map (1 occupied), returns something that can go right into self._map"""
         """ Will dilate hard_rad times, and then apply a potential field of radius soft_rad in addition"""
         
         dim = binary_map.shape
         max_cost = np.sqrt(dim[0]**2 + dim[1]**2)
-        if rad == 0:
+        if hard_rad + soft_rad == 0:
             m = np.ones(dim)
             m += binary_map * max_cost
             return m

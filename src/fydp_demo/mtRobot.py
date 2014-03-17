@@ -106,12 +106,17 @@ class mtRobot:
         """Get current coords to chase after."""
         return self.waypoints[self.progress]
         
-    def is_at_current_goal(self):
-        threshold = 0.1
-        if (self.loc[0] - self.waypoints[self.progress][0])**2 + (self.loc[1] - self.waypoints[self.progress][1])**2 < threshold **2:
-            return True
+    def is_at_current_goal(self, threshold=0.1, eight_connected=False):
+        if eight_connected:
+            if (abs(self.loc[0] - self.waypoints[self.progress][0])  <= 1) and (abs(self.loc[1] - self.waypoints[self.progress][1])  <= 1):
+                return True
+            else:
+                return False
         else:
-            return False
+            if (self.loc[0] - self.waypoints[self.progress][0])**2 + (self.loc[1] - self.waypoints[self.progress][1])**2 < threshold **2:
+                return True
+            else:
+                return False
         
     def initialize_robot(self, start_loc = None, waypoints = None):
         if start_loc is None:

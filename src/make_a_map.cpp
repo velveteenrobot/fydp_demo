@@ -39,9 +39,11 @@ bool updateMap = true;
 
 int cnt = 0;
 
-double mapRes = 0.10;
-double mapWidth = 20;
-double mapHeight = 20;
+long pose_time = 0;
+long scan_time = 0;
+double mapRes = 0.05;
+double mapWidth = 10;
+double mapHeight = 10;
 double robotMotion [3] = {0.5, 0, -0.5};
 double yaw = 0.0;
 nav_msgs::OccupancyGrid knownMapMsg;
@@ -229,6 +231,8 @@ void pose_callback(const fydp_demo::ips_msg& msg)
     return;
   }*/
 
+  pose_time = msg.header.stamp.sec;
+
   if ((msg.X - pose.position.x) < 0.02 && (msg.Y - pose.position.y) < 0.02 && (msg.Yaw - yaw) < 0.02)
     updateMap = true;
   else
@@ -268,121 +272,125 @@ void pose_callback(const fydp_demo::ips_msg& msg)
 //Callback function for the map
 void scan_callback(const sensor_msgs::LaserScan& msg)
 {
+  scan_time = msg.header.stamp.sec;
+  long delta = scan_time - pose_time;
+  cout<<"Time delta: "<<delta<<endl;
   //cout<<"Scan received"<<endl;
-
-  int M = int (mapHeight/mapRes);
-  int N = int (mapWidth/mapRes);
-
-  double theta, ix, iy, il;
-  std::vector< std::vector<double> > invMod;
-  if (updateMap)
+  if (delta <= 0)
   {
-    for (int i = 0; i < msg.ranges.size(); i++)
+
+    int M = int (mapHeight/mapRes);
+    int N = int (mapWidth/mapRes);
+
+    double theta, ix, iy, il;
+    std::vector< std::vector<double> > invMod;
+    if (updateMap)
     {
-      theta = yaw + (msg.angle_min  + msg.angle_increment*i);
-      /*if (isnan(msg.ranges[i]/mapRes))
+      for (int i = 0; i < msg.ranges.size(); i++)
       {
-        cout << "RANGE IS NAN: " << theta << endl;
-
-      }*/
-      if (true)
-      {
-        //cout<<"theta: "<< theta<<endl;
-        if(!isnan(msg.ranges[i]/mapRes))
+        theta = yaw + (msg.angle_min  + msg.angle_increment*i);
+        /*if (isnan(msg.ranges[i]/mapRes))
         {
-          invMod = get_inverse_m_m(M, N, theta, msg.ranges[i]/mapRes, msg.range_max/mapRes);
-        }
-        else
+          cout << "RANGE IS NAN: " << theta << endl;
+
+        }*/
+        if (true)
         {
-          invMod = get_inverse_m_m(M, N, theta, msg.range_max/mapRes, msg.range_max/mapRes);
-        }
-
-        if(i==3)
-          cout<<"invmod:"<<endl;
-
-        
-
-        //cout <<"Got invmod"<<endl;
-        for (int j = 0; j < invMod.size(); j++)
-        {
-          ix = invMod[j][0];
-          iy = invMod[j][1];
-          il = invMod[j][2];
-          if (i==3)
+          //cout<<"theta: "<< theta<<endl;
+          if(!isnan(msg.ranges[i]/mapRes))
           {
-            cout<<invMod[j][0]<< " " << invMod[j][1]<< " " << invMod[j][2]<<endl;
+            invMod = get_inverse_m_m(M, N, theta, msg.ranges[i]/mapRes, msg.range_max/mapRes);
+          }
+          else
+          {
+            invMod = get_inverse_m_m(M, N, theta, msg.range_max/mapRes, msg.range_max/mapRes);
           }
 
-          //Calculate updated log odds
-          L[int(ix)][int(iy)] = L[int(ix)][int(iy)] + log(il/(1.0-il)) - LO[int(ix)][int(iy)];
+          if(i==3)
+            cout<<"invmod:"<<endl;
 
-          if (L[int(ix)][int(iy)] > 5000)
-            L[int(ix)][int(iy)] = 5000;
-
-          if (L[int(ix)][int(iy)] < -5)
-            L[int(ix)][int(iy)] = -5;
-
-          //if (cnt%100 == 0)
-          //  cout<<"Log odds: "<<L[int(ix)][int(iy)]<<endl;
-
-          //cnt++;
-        }
-        if (i==3)
-          cout<<endl;
-        //cout<<endl;
-      }
-    }
-  }
-  //Calculate probabilties
-   //m = exp(L)./(1+exp(L));
-
-  for (int i = 0; i < int (mapHeight/mapRes); i++)
-  {
-    for (int j = 0; j < int (mapWidth/mapRes); j++)
-    {
-      knownMap[i][j] = exp(L[i][j])/(1+exp(L[i][j]));
-      if (knownMap[i][j] > 1.0)
-        cout<<"Greater than 1"<<endl;
-    }
-  }
-
-  //cout<<"Got probabilities"<<endl;
-  
-  //Put it in message
-  for (int i = 0; i < int (mapHeight/mapRes); i++)
-  {
-    for (int j = 0; j < int (mapWidth/mapRes); j++)
-    {
-      Pose offset_pose = pose;
-
-      // taking the tranpose
-      offset_pose.position.x = offset_pose.position.y;
-      offset_pose.position.y = pose.position.x;
-
-      // taking the 'negation'
-      //offset_pose.position.x = mapHeight - offset_pose.position.x;
-      //offset_pose.position.y = mapWidth - offset_pose.position.y;
-
-
-      if( ! pixel_in_radius(offset_pose, i, j, int(0.6/mapRes)   ))
-      {
-        if (knownMap[i][j] == 0.5)
-          knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = -1;
-        /*else if (knownMap[i][j] >= 0.5)
-          knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = 100;*/
-        else 
-        {
-
-          knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = min(100.0,knownMap[i][j]*100);
           
+
+          //cout <<"Got invmod"<<endl;
+          for (int j = 0; j < invMod.size(); j++)
+          {
+            ix = invMod[j][0];
+            iy = invMod[j][1];
+            il = invMod[j][2];
+            /*if (i==3)
+            {
+              cout<<invMod[j][0]<< " " << invMod[j][1]<< " " << invMod[j][2]<<endl;
+            }*/
+
+            //Calculate updated log odds
+            L[int(ix)][int(iy)] = L[int(ix)][int(iy)] + log(il/(1.0-il)) - LO[int(ix)][int(iy)];
+
+            if (L[int(ix)][int(iy)] > 5000)
+              L[int(ix)][int(iy)] = 5000;
+
+            if (L[int(ix)][int(iy)] < -5)
+              L[int(ix)][int(iy)] = -5;
+
+            //if (cnt%100 == 0)
+            //  cout<<"Log odds: "<<L[int(ix)][int(iy)]<<endl;
+
+            //cnt++;
+          }
+          /*if (i==3)
+            cout<<endl;*/
         }
       }
     }
-  }
+    //Calculate probabilties
+     //m = exp(L)./(1+exp(L));
 
-  map_pub.publish(knownMapMsg);
-  cout<<"publishing map"<<endl;
-  
+    for (int i = 0; i < int (mapHeight/mapRes); i++)
+    {
+      for (int j = 0; j < int (mapWidth/mapRes); j++)
+      {
+        knownMap[i][j] = exp(L[i][j])/(1+exp(L[i][j]));
+        if (knownMap[i][j] > 1.0)
+          cout<<"Greater than 1"<<endl;
+      }
+    }
+
+    //cout<<"Got probabilities"<<endl;
+    
+    //Put it in message
+    for (int i = 0; i < int (mapHeight/mapRes); i++)
+    {
+      for (int j = 0; j < int (mapWidth/mapRes); j++)
+      {
+        Pose offset_pose = pose;
+
+        // taking the tranpose
+        offset_pose.position.x = offset_pose.position.y;
+        offset_pose.position.y = pose.position.x;
+
+        // taking the 'negation'
+        //offset_pose.position.x = mapHeight - offset_pose.position.x;
+        //offset_pose.position.y = mapWidth - offset_pose.position.y;
+
+
+        if( ! pixel_in_radius(offset_pose, i, j, int(0.6/mapRes)   ))
+        {
+          if (knownMap[i][j] == 0.5)
+            knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = -1;
+          /*else if (knownMap[i][j] >= 0.5)
+            knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = 100;*/
+          else 
+          {
+
+            knownMapMsg.data[MAP_IDX(knownMapMsg.info.width, i, j)] = min(100.0,knownMap[i][j]*100);
+            
+          }
+        }
+      }
+    }
+
+    map_pub.publish(knownMapMsg);
+    cout<<"publishing map"<<endl;
+  }
 }
 
 void spinOnce(ros::Rate& loopRate) {

@@ -32,3 +32,4 @@ Pose get_random_pos(Pose start, Map* roomMap);
 std::vector< std::vector<int> > bresenham(int x0,int y0,int x1,int y1);
 int get_closest_waypoint(Pose current_pose, vector<Pose> waypoint_list);
 bool has_los(int x1,int y1,int x2,int y2, Map* roomMap);
+bool does_dynamics_intersect(Pose start, float speed, float turnRate, float prop_time, Map* roomMap);

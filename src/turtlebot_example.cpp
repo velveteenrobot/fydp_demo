@@ -47,7 +47,6 @@ vector<Pose> last_5_wayppoints;
 Pose random_search_point;
 int random_global_planner_count = 0;
 
-
 bool waypointsDone = false;
 //const double PROP_TIME = 0.3;
 
@@ -267,6 +266,22 @@ int main(int argc, char **argv)
 
   Pose currentWaypoint;
 
+  /* Spinning before moving to build a fuller map
+  */
+  int spin_cnt = 0;
+  while (spin_cnt < 9)
+  {
+      Twist vel;
+      spin_cnt++;
+      vel.linear.x = 0;
+      vel.angular.z = PI / 4.0;
+      velocityPublisher.publish(vel); // Publish the command velocity
+      ros::Duration(1.0).sleep();
+      ros::spinOnce();
+  }
+
+
+
   while (true)
   {
     //cout<< "Num waypoints: "<< waypoints.size()<<endl;
@@ -296,8 +311,13 @@ int main(int argc, char **argv)
       }
 
       //cout<<"Got into waypoints stuff"<<endl;
-      
-      waypoints.erase(waypoints.begin(), start_iterator);
+      if (start_iterator != waypoints.end() - 1)
+      {
+            waypoints.erase(waypoints.begin(), start_iterator + 1);        
+      } else
+      {
+        waypoints.erase(waypoints.begin(), start_iterator);        
+      }
 
       // half ass FIFO queue of the last five waypoints the robot has 'been' at
       last_5_wayppoints.push_back(waypoints[0]);
@@ -307,15 +327,21 @@ int main(int argc, char **argv)
         last_5_wayppoints.erase(last_5_wayppoints.begin());   // removing the first element
       }
 
-      if (waypoints.size() >=  3)
-        currentWaypoint = waypoints[2];
-      else if (waypoints.size() == 2)
+      
+      if (waypoints.size() >=  2)
         currentWaypoint = waypoints[1];
       else
         currentWaypoint = waypoints[0];
-
+      
+      //currentWaypoint = waypoints[0];
 
       cout<<"Current Waypoint: "<<currentWaypoint.position.x<<", "<<currentWaypoint.position.y<<", "<<currentWaypoint.position.z<<endl;
+      cout<<"From: "<<endl;
+      for (int i = 0; i < waypoints.size(); i++)
+      {
+        cout<<waypoints[1].position.x<<", "<<waypoints[i].position.y<<endl;
+      }
+
       //out<<"added to list of 5"<<endl;
       
       // calculating error and generating a velocity command
@@ -324,12 +350,15 @@ int main(int argc, char **argv)
       cout<<"Error x: "<<error.linear.x
           <<", y: "<<error.linear.y
           <<", yaw: "<<error.angular.z<<endl;
-      vel.linear.x += 0.4 * error.linear.x;
+      vel.linear.x += 2.0 * error.linear.x;
 
-      vel.angular.z += 0.7 * error.linear.y;
+      vel.angular.z += 2.0 * error.linear.y;
 
-      if (vel.linear.x > 0.3){
-        vel.linear.x = 0.3;
+      if (vel.linear.x > 0.08){
+        vel.linear.x = 0.08;
+      }
+      if (vel.linear.x < -0.08){
+        vel.linear.x = -0.08;
       }
       
       //vel.linear.x = 0.0;
@@ -338,20 +367,25 @@ int main(int argc, char **argv)
 
 
       // checking if the command is valid
-      Pose nextPose1 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.1);
-      Pose nextPose2 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.2);
-      Pose nextPose3 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.3);
-      if (roomMap->isOccupied(nextPose1.position.x, nextPose1.position.y) || roomMap->isOccupied(nextPose2.position.x, nextPose2.position.y) || roomMap->isOccupied(nextPose3.position.x, nextPose3.position.y) )
+      //Pose nextPose1 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.1);
+      //Pose nextPose2 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.2);
+      //Pose nextPose3 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.3);
+      bool doesIntersect = does_dynamics_intersect(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.8, roomMap);
+      //if (roomMap->isOccupied(nextPose1.position.x, nextPose1.position.y) || roomMap->isOccupied(nextPose2.position.x, nextPose2.position.y) || roomMap->isOccupied(nextPose3.position.x, nextPose3.position.y) )
+      if (doesIntersect)
       {
         local_blocked = true;
         cout << "GOING RANDOM!" << endl;
         waypoints.clear();
-        waypoints = last_5_wayppoints;
-
-        Pose random_goal = get_random_pos(last_5_wayppoints[4], roomMap);
+        //waypoints = last_5_wayppoints;
+        cout <<"Random 1"<<endl;
+        Pose random_goal = get_random_pos(pose, roomMap);
+        //Pose random_goal = get_random_pos(last_5_wayppoints[last_5_wayppoints.size() -1], roomMap);
+        cout <<"Random 2"<<endl;
         random_search_point = random_goal;
         random_global_planner_count = 0;
         waypoints.push_back(random_goal);
+        cout <<"Random 3"<<endl;
 
         //waypoints.push_back(random_goal);
         ros::spinOnce();

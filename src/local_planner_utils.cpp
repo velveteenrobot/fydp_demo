@@ -64,6 +64,32 @@ Pose propogateDynamics(Pose start, float speed, float turnRate, float prop_time)
   return result;
 }
 
+bool does_dynamics_intersect(Pose start, float speed, float turnRate, float prop_time, Map* roomMap) {
+  Pose result = start;
+  double roll, pitch, yaw;
+
+  tf::Quaternion bt_q;
+  quaternionMsgToTF(start.orientation, bt_q);
+  tf::Matrix3x3(bt_q).getRPY(roll, pitch, yaw);
+
+  /* straight line */
+  result.position.x += prop_time * speed * cos(yaw);
+  result.position.y += prop_time * speed * sin(yaw);  
+
+  bool b1 = has_los(start.position.x, start.position.y, result.position.x, result.position.y, roomMap);
+
+  /*
+  full angle step
+  */
+  result = start;
+  result.position.x += prop_time * speed * cos(yaw + turnRate * prop_time);
+  result.position.y += prop_time * speed * sin(yaw + turnRate * prop_time);
+
+  bool b2 = has_los(start.position.x, start.position.y, result.position.x, result.position.y, roomMap);
+
+  return b1 && b2;
+}
+
 /*
 	Generates a random point around the start pose, tries to makes sure taht it is a valid point
 */
@@ -72,14 +98,15 @@ Pose get_random_pos(Pose start, Map* roomMap) {
   bool running = true;
   while (running) {
     int r = rand() % 360;
-    int d = rand() % 50 + 50;
+    int d = rand() % 10 + 10;
     float dist = d / 100.0;
     float MAX_DIST = 1.0;
     float rad = float(r) / 360.0 * 2 * PI;
     result.position.x += + cos(rad)*MAX_DIST * dist;
     result.position.y += + sin(rad)*MAX_DIST * dist;
 
-    if (!roomMap->isOccupied(result.position.x,result.position.y)){
+    if (has_los(start.position.x, start.position.y, result.position.x, result.position.y, roomMap)) {
+    //if (!roomMap->isOccupied(result.position.x,result.position.y)){
       return result;
     }
   }
