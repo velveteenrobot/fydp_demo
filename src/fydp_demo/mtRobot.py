@@ -57,6 +57,8 @@ class mtRobot:
             self.update_planner_vision_map()
             self.update_planner_location(self.loc)
             self.run_planner()
+            print "Generated path: "
+            print self.path
 
         if self.DEBUG_PRINT:
                 plt.figure()
@@ -109,7 +111,7 @@ class mtRobot:
         if (self.loc[0] - self.waypoints[self.progress][0])**2 + (self.loc[1] - self.waypoints[self.progress][1])**2 < threshold **2:
             return True
         else:
-            return Falset 
+            return False
         
     def initialize_robot(self, start_loc = None, waypoints = None):
         if start_loc is None:

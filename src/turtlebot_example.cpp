@@ -125,6 +125,9 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
     shifted_point.position.x = -(-float(msg.poses[i].position.x) + float(roomMap->getWidth())/2.0) * float(roomMap->getRes());
     shifted_point.position.y = (-float(msg.poses[i].position.y) + float(roomMap->getHeight())/2.0) * float(roomMap->getRes());
 
+
+    //shifted_point.position.x = 0;
+    //shifted_point.position.y = 0;
     // truncates paths if they intersect with obstacle
     if (!roomMap->isOccupied(shifted_point.position.x,shifted_point.position.y))
     {
@@ -292,7 +295,7 @@ int main(int argc, char **argv)
         }   
       }
 
-      
+      //cout<<"Got into waypoints stuff"<<endl;
       
       waypoints.erase(waypoints.begin(), start_iterator);
 
@@ -304,17 +307,35 @@ int main(int argc, char **argv)
         last_5_wayppoints.erase(last_5_wayppoints.begin());   // removing the first element
       }
 
-      currentWaypoint = waypoints[1];
+      if (waypoints.size() >=  3)
+        currentWaypoint = waypoints[2];
+      else if (waypoints.size() == 2)
+        currentWaypoint = waypoints[1];
+      else
+        currentWaypoint = waypoints[0];
 
+
+      cout<<"Current Waypoint: "<<currentWaypoint.position.x<<", "<<currentWaypoint.position.y<<", "<<currentWaypoint.position.z<<endl;
+      //out<<"added to list of 5"<<endl;
       
       // calculating error and generating a velocity command
       Twist vel;
       Twist error = getError(pose, currentWaypoint);
-      /*cout<<"Error x: "<<error.linear.x
+      cout<<"Error x: "<<error.linear.x
           <<", y: "<<error.linear.y
-          <<", yaw: "<<error.angular.z<<endl;*/
-      vel.linear.x += 1.0 * error.linear.x;
-      vel.angular.z += 1.0 * error.linear.y;
+          <<", yaw: "<<error.angular.z<<endl;
+      vel.linear.x += 0.4 * error.linear.x;
+
+      vel.angular.z += 0.7 * error.linear.y;
+
+      if (vel.linear.x > 0.3){
+        vel.linear.x = 0.3;
+      }
+      
+      //vel.linear.x = 0.0;
+
+
+
 
       // checking if the command is valid
       Pose nextPose1 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.1);
@@ -343,11 +364,13 @@ int main(int argc, char **argv)
         Pose offsetWaypoint;
         offsetWaypoint = currentWaypoint;
         double norm = calc_norm(error.linear.x, error.linear.y);
+        cout<<"Norm: "<<norm<<endl;
         drawPose(offsetWaypoint);
         ros::spinOnce();
-        if(norm < 0.3)
+        if(norm < 0.25)
         {
           waypoints.erase(waypoints.begin());
+          cout<<"Switching waypoints"<<endl;
         }
 
       }

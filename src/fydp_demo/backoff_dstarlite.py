@@ -48,7 +48,7 @@ class dlite:
         
         # External drive buffers and flags
         self.newpos_flag = False
-        self.pos_buffer = np.array((-1,-1))
+        self.pos_buffer = np.array((-2,-2))
         self.newvis_flag = False
         self.vis_buffer = np.zeros(_map.shape)		# considered paired with self.pure_map
         self.newgoal_flag = False
@@ -256,7 +256,7 @@ class dlite:
             
             self.newvis_flag = False
 
-    def get_backedoff_map(self, binary_map, rad=10):
+    def get_backedoff_map(self, binary_map, rad=4):
         """Takes binary map (1 occupied), returns something that can go right into self._map"""
         """Basically, will apply a 'potential' field of radius rad around all obstacles to prevent
         the planner from planning too close to obstacles """
@@ -273,7 +273,7 @@ class dlite:
             for i in range(rad):
                 r = i + 1
                 prev_smeared = np.copy(smeared)
-                smeared = utils.simple_erode(smeared)
+                smeared = utils.simple_dilate(smeared)
                 diff = np.logical_xor(smeared, prev_smeared)
                 
                 if r <= 3:
