@@ -133,7 +133,7 @@ bool has_los(int x1,int y1,int x2,int y2, Map* roomMap)
   for (int i = 0; i < bres.size(); i++)
   {
     temp.position.x = bres[i][0]; temp.position.y = bres[i][1];
-    if (roomMap->robotAreaOccupied(temp)
+    if (roomMap->robotAreaOccupied(temp))
     {
       return false;
     }

@@ -251,22 +251,21 @@ int main(int argc, char **argv)
 
   cout<<"wait for the position"<<endl;
   while (!poseReady) {
-    cout<<"Balls"<<endl;
+    cout << "Still waiting for initial pose" << endl;
     loopRate.sleep(); //Maintain the loop rate
-    cout<<"Balls2"<<endl;
     ros::spinOnce();
-    cout<<"Balls3"<<endl;
   }
+  cout << "Got initial pose" << endl;
   
   cout<<"Map width: "<<roomMap->getWidth()<<endl;
   cout<<"Map heigh: "<<roomMap->getHeight()<<endl;
 
   cout<<"Running local planner"<<endl;
 
-
   Pose currentWaypoint;
 
-  /* Spinning before moving to build a fuller map
+  /* 
+  Spinning the robot before moving to build a fuller map
   */
   int spin_cnt = 0;
   while (spin_cnt < 9)
@@ -280,18 +279,12 @@ int main(int argc, char **argv)
       ros::spinOnce();
   }
 
-
-
   while (true)
   {
-    //cout<< "Num waypoints: "<< waypoints.size()<<endl;
-
     if (!local_blocked)
     {
       waypoints = global_waypoints;
     }  
-
-
     if (!waypoints.empty())
     {
       /*
@@ -310,39 +303,31 @@ int main(int argc, char **argv)
         }   
       }
 
-      //cout<<"Got into waypoints stuff"<<endl;
       if (start_iterator != waypoints.end() - 1)
       {
-            waypoints.erase(waypoints.begin(), start_iterator + 1);        
+        waypoints.erase(waypoints.begin(), start_iterator + 1);        
       } else
       {
         waypoints.erase(waypoints.begin(), start_iterator);        
       }
 
-      // half ass FIFO queue of the last five waypoints the robot has 'been' at
+      // FIFO queue of the last five waypoints the robot has 'been' at
       last_5_wayppoints.push_back(waypoints[0]);
-
       if (waypoints.size() >= 5)
       {
         last_5_wayppoints.erase(last_5_wayppoints.begin());   // removing the first element
       }
-
-      
       if (waypoints.size() >=  2)
         currentWaypoint = waypoints[1];
       else
         currentWaypoint = waypoints[0];
       
-      //currentWaypoint = waypoints[0];
-
       cout<<"Current Waypoint: "<<currentWaypoint.position.x<<", "<<currentWaypoint.position.y<<", "<<currentWaypoint.position.z<<endl;
       cout<<"From: "<<endl;
       for (int i = 0; i < waypoints.size(); i++)
       {
         cout<<waypoints[1].position.x<<", "<<waypoints[i].position.y<<endl;
       }
-
-      //out<<"added to list of 5"<<endl;
       
       // calculating error and generating a velocity command
       Twist vel;
@@ -351,7 +336,6 @@ int main(int argc, char **argv)
           <<", y: "<<error.linear.y
           <<", yaw: "<<error.angular.z<<endl;
       vel.linear.x += 2.0 * error.linear.x;
-
       vel.angular.z += 2.0 * error.linear.y;
 
       if (vel.linear.x > 0.08){
@@ -362,9 +346,6 @@ int main(int argc, char **argv)
       }
       
       //vel.linear.x = 0.0;
-
-
-
 
       // checking if the command is valid
       //Pose nextPose1 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.1);
