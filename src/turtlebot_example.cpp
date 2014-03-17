@@ -54,11 +54,6 @@ bool local_blocked = false;
 
 void pose_callback(const fydp_demo::ips_msg& msg)
 {
-  //This function is called when a new position message is received
-  /*if(msg.tag_id != TAGID) {
-    return;
-  }*/
-
   if (roomMap != NULL)
   {
     
@@ -125,11 +120,9 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
     shifted_point.position.x = -(-float(msg.poses[i].position.x) + float(roomMap->getWidth())/2.0) * float(roomMap->getRes());
     shifted_point.position.y = (-float(msg.poses[i].position.y) + float(roomMap->getHeight())/2.0) * float(roomMap->getRes());
 
-
-    //shifted_point.position.x = 0;
-    //shifted_point.position.y = 0;
     // truncates paths if they intersect with obstacle
-    if (!roomMap->isOccupied(shifted_point.position.x,shifted_point.position.y))
+    if (!roomMap->robotAreaOccupied(shifted_point))
+    //if (!roomMap->isOccupied(shifted_point.position.x,shifted_point.position.y))
     {
       Pose offsetWaypoint;
       offsetWaypoint = shifted_point;
@@ -148,10 +141,7 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
       }
       break;
     }
-
-    
   }
-
   drawLine(points);
   points.clear();
 
@@ -171,53 +161,6 @@ void spinOnce(ros::Rate& loopRate) {
   loopRate.sleep(); //Maintain the loop rate
   ros::spinOnce();   //Check for new messages
 }
-
-vector<Pose> get_local_planner_path()
-{
-
-}
-
-
-
-Pose perpendicular_step(Pose current, Pose target)
-{
-  float cx = current.position.x;
-  float cy = current.position.y;
-  float tx = current.position.x;
-  float ty = current.position.y;
-
-  float delta_x = target.position.x - current.position.x;
-  float delta_y = target.position.y - current.position.y;
-  float norm = calc_norm(delta_x, delta_y);
-
-  float pdelta_x = - delta_y / norm;
-  float pdelta_y = delta_x / norm;
-
-  bool running = true;
-  int i = 1;
-  float scale = 0.1;
-  int target_step = 0;
-  while (running)
-  {
-    if (has_los(cx,cy, tx+i*pdelta_x*scale, ty+i*pdelta_y*scale, roomMap))
-    {
-      running = false;
-      target_step = i+2;
-    }
-    if (has_los(cx,cy, tx-i*pdelta_x*scale, ty-i*pdelta_y*scale, roomMap))
-    {
-      running = false;
-      target_step =  -(i+2);
-    }
-    i++;
-  }
-  Pose new_target = target;
-  new_target.position.x = target_step*pdelta_x*scale;
-  new_target.position.y = target_step*pdelta_y*scale;
-  return new_target;
-}
-
-
 
 int main(int argc, char **argv)
 {
