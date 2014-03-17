@@ -78,16 +78,7 @@ bool does_dynamics_intersect(Pose start, float speed, float turnRate, float prop
 
   bool b1 = has_los(start.position.x, start.position.y, result.position.x, result.position.y, roomMap);
 
-  /*
-  full angle step
-  */
-  result = start;
-  result.position.x += prop_time * speed * cos(yaw + turnRate * prop_time);
-  result.position.y += prop_time * speed * sin(yaw + turnRate * prop_time);
-
-  bool b2 = has_los(start.position.x, start.position.y, result.position.x, result.position.y, roomMap);
-
-  return b1 && b2;
+  return !b1;
 }
 
 /*

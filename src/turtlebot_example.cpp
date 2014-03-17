@@ -93,10 +93,10 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
   // to the random point. this is to garuntee a good path.
   if (local_blocked)
   {
-    Twist error = getError(pose, random_search_point);
-    float mag_error = sqrt(pow(error.linear.x, 2.0) + pow(error.linear.y, 2.0));
-    if (mag_error < 0.25 )
-    {
+    //Twist error = getError(pose, random_search_point);
+    //float mag_error = sqrt(pow(error.linear.x, 2.0) + pow(error.linear.y, 2.0));
+    //if (mag_error < 0.25 )
+    //{
       random_global_planner_count++;
       if (random_global_planner_count == 2)
       {
@@ -104,7 +104,8 @@ void waypoints_callback(const geometry_msgs::PoseArray msg)
         random_global_planner_count = 0;
         random_search_point = Pose();
       }        
-    }
+      cout << "STALLED OUT" << endl;
+    //}
   }
 
 
@@ -268,14 +269,14 @@ int main(int argc, char **argv)
   Spinning the robot before moving to build a fuller map
   */
   int spin_cnt = 0;
-  while (spin_cnt < 9)
+  while (spin_cnt < 50)
   {
       Twist vel;
       spin_cnt++;
       vel.linear.x = 0;
-      vel.angular.z = PI / 4.0;
+      vel.angular.z = PI / 5.0;
       velocityPublisher.publish(vel); // Publish the command velocity
-      ros::Duration(1.0).sleep();
+      ros::Duration(0.3).sleep();
       ros::spinOnce();
   }
 
@@ -309,6 +310,30 @@ int main(int argc, char **argv)
       } else
       {
         waypoints.erase(waypoints.begin(), start_iterator);        
+      }
+
+      /*
+      Now take the set of waypoints, and look forward up to 5 waypoints, looking for line of sight
+      Pick the furthest one that you have line of sight with
+      */
+      int look_forward_max = 5;
+      if (waypoints.size() < look_forward_max){
+        look_forward_max = waypoints.size();
+      }
+      int look_forward_cnt = 0;
+      for (int i = 0; i < look_forward_max; i++)
+      {
+        if (has_los(pose.position.x, pose.position.y, waypoints[i].position.x, waypoints[i].position.y, roomMap))
+        {
+          look_forward_cnt = i;
+        } else
+        {
+          break;
+        }
+      }
+      for (int i =0; i < look_forward_cnt; i++)
+      {
+        waypoints.erase(waypoints.begin());
       }
 
       // FIFO queue of the last five waypoints the robot has 'been' at
@@ -351,7 +376,7 @@ int main(int argc, char **argv)
       //Pose nextPose1 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.1);
       //Pose nextPose2 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.2);
       //Pose nextPose3 = propogateDynamics(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.3);
-      bool doesIntersect = does_dynamics_intersect(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.8, roomMap);
+      bool doesIntersect = does_dynamics_intersect(pose, calc_norm(vel.linear.x, vel.linear.y), vel.angular.z, 0.25, roomMap);
       //if (roomMap->isOccupied(nextPose1.position.x, nextPose1.position.y) || roomMap->isOccupied(nextPose2.position.x, nextPose2.position.y) || roomMap->isOccupied(nextPose3.position.x, nextPose3.position.y) )
       if (doesIntersect)
       {
@@ -365,7 +390,7 @@ int main(int argc, char **argv)
         cout <<"Random 2"<<endl;
         random_search_point = random_goal;
         random_global_planner_count = 0;
-        waypoints.push_back(random_goal);
+        //waypoints.push_back(random_goal);
         cout <<"Random 3"<<endl;
 
         //waypoints.push_back(random_goal);
