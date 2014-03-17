@@ -95,13 +95,13 @@ if __name__ == '__main__':
     robot.combined_map = np.zeros(map_size)
     robot.load_planner()
 
-    while pose_ready is False:
-        rospy.sleep(1)
+    #while pose_ready is False:
+    #    rospy.sleep(1)
 
     cnt = 0
     done = False
 
-    while not done:
+    while not done and not robot.loc[0] == 0 and not robot.loc[1] = 0:
         print "IN MAIN LOOP ", cnt
         robot.test_step()
 
@@ -131,7 +131,8 @@ if __name__ == '__main__':
         for i in waypoint_array.poses:
             #print i.position.x, i.position.y
             pass
-        pub.publish(waypoint_array)
+        if pose_ready:
+            pub.publish(waypoint_array)
         rospy.sleep(0.5)
         
         if robot.is_at_current_goal():

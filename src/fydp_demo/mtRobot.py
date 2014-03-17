@@ -57,6 +57,8 @@ class mtRobot:
             self.update_planner_vision_map()
             self.update_planner_location(self.loc)
             self.run_planner()
+            print "Generated path: "
+            print self.path
 
         if self.DEBUG_PRINT:
                 plt.figure()
@@ -113,13 +115,20 @@ class mtRobot:
         
     def initialize_robot(self, start_loc = None, waypoints = None):
         if start_loc is None:
-            self.loc = (0,0)
+            start_config_file = open("../../config/planner_start.txt", "r")
+            l = start_config_file.readline().split(",")
+            self.loc = (int(l[0].strip()), int(l[1].strip()))
+            #self.loc = (0,0)
         else:
             self.loc = start_loc
         if waypoints is None:
             self.waypoints = []
-            self.waypoints.append((9*10,19*10))
-            self.waypoints.append((5*10,2*10)) 
+            waypoint_config_file = open("../../config/waypoints_start.txt", "r")
+            for line in waypoint_config_file:
+                l = [x.strip() for x in line.split(",")]
+                self.waypoints.append((int(l[0]), int(l[1])))
+            #self.waypoints.append((9*10,19*10))
+            #self.waypoints.append((5*10,2*10)) 
         else:
             self.waypoints = waypoints
         self.load_params( np.asarray(self.loc), np.asarray(self.waypoints))

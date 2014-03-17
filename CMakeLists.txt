@@ -26,7 +26,7 @@ generate_messages(DEPENDENCIES std_msgs)
 #target_link_libraries(${PROJECT_NAME} another_library)
 #rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
-add_executable(turtlebot_example src/turtlebot_example.cpp src/Map.cpp src/marker.cpp)
+add_executable(turtlebot_example src/turtlebot_example.cpp src/Map.cpp src/marker.cpp src/local_planner_utils.cpp)
 add_executable(sim_pose_publisher src/sim_pose_publisher.cpp)
 
 add_executable(make_a_map src/make_a_map.cpp src/marker.cpp)
