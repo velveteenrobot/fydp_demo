@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 
 class LaneDetector:
     def __init__(self):
-        self.min_pix_count = 400
-        self.saliency_threshold_static = 0.400
+        self.min_pix_count = 250
+        self.saliency_threshold_static = 0.4
         self.saliency_subwindows_static_x = 4
         self.saliency_subwindows_static_y = 4
         self.intensity_threshold = 100
-        self.v_threshold = 0.7
+        self.v_threshold = 0.9
         self.s_threshold = 0.1
         
     def compute_saliency(self, lab_image):
@@ -19,8 +19,8 @@ class LaneDetector:
         m = cv2.mean(lab_image)
         saliency = lab_image[:,:,0] + lab_image[:,:,1] + lab_image[:,:,2] - m[0] - m[1] - m[2]
         b, saliency = cv2.threshold(saliency, 0.0, 1.0, 3)
-        minVal, maxval, minLoc, maxLoc = cv2.minMaxLoc(saliency)
-        return saliency / maxval
+        minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(saliency)
+        return saliency / maxVal
 
     def saliency_lanes_static(self, img, win_ratio_x, win_ratio_y):
         saliency_map_out = np.empty((img.shape[0], img.shape[1]))
@@ -42,8 +42,8 @@ class LaneDetector:
                 submap_out = self.compute_saliency(subimage)
                 sub_bin_out = submap_out > self.saliency_threshold_static;
                 
-                saliency_map_out[top:bottom, left:right] = submap_out
-                saliency_bin_out[top:bottom, left:right] = sub_bin_out
+                saliency_map_out[top:bottom, left:right] = submap_out * 255
+                saliency_bin_out[top:bottom, left:right] = sub_bin_out * 255
                 
         return saliency_bin_out
         
@@ -84,7 +84,7 @@ class LaneDetector:
                 submap_out = self.cluster_check(subwindow, submap)
                 lane_map[top:bottom, left:right] = submap_out
 
-        element = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
+        element = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10,10))
         lane_map = cv2.morphologyEx(lane_map, cv2.MORPH_CLOSE, element)
         
         cluster_map, cluster_num = spn.measurements.label(np.uint8(lane_map))
@@ -93,15 +93,15 @@ class LaneDetector:
             area = np.sum(cluster_map == i)
             if area > self.min_pix_count:
                 if np.sum(gray_image[cluster_map == i])/area > self.intensity_threshold:
-                    lane_map_out[cluster_map == i] = 10
+                    lane_map_out[cluster_map == i] = 255
                     
         return lane_map_out
         
-    def hsv_verify(self, image, v_thres, s_thres):
+    def hsv_verify(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
-        vMask = hsv_image[:,:,2] >= v_thres
-        sMask = hsv_image[:,:,1] >= s_thres
+        vMask = hsv_image[:,:,2] >= self.v_threshold
+        sMask = hsv_image[:,:,1] >= self.s_threshold
         mask = np.logical_and(vMask, sMask)
         return mask
         
@@ -111,14 +111,13 @@ class LaneDetector:
         
         saliency_initial_lane_map_static = self.saliency_lanes_static(image_blurred, self.saliency_subwindows_static_x, self.saliency_subwindows_static_y)
         saliency_verified_lane_map_static = self.lane_verify(gray_image, saliency_initial_lane_map_static, self.saliency_subwindows_static_x, self.saliency_subwindows_static_y)
-        hsv_mask = self.hsv_verify(image, self.v_threshold, self.s_threshold)
+        hsv_mask = self.hsv_verify(image)
         hsv_lane_map = hsv_mask * saliency_verified_lane_map_static
-        
-        #image[hsv_lane_map,0] = 0
-        #image[hsv_lane_map,1] = 255
-        #image[hsv_lane_map,2] = 255
-        
-        return hsv_lane_map
+
+        idx = (hsv_lane_map == 255)
+        image[idx] = (0, 255, 255)
+	
+        return image
     
     
     
