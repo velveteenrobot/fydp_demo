@@ -296,11 +296,12 @@ int main(int argc, char **argv)
       
       waypoints.erase(waypoints.begin(), start_iterator);
 
+      // half ass FIFO queue of the last five waypoints the robot has 'been' at
       last_5_wayppoints.push_back(waypoints[0]);
 
       if (waypoints.size() >= 5)
       {
-        last_5_wayppoints.pop_back();
+        last_5_wayppoints.erase(last_5_wayppoints.begin());   // removing the first element
       }
 
       currentWaypoint = waypoints[1];
